@@ -49,9 +49,6 @@ func _target(_hour: float, _weather: int) -> Array:
 func _track() -> void:
 	pass
 
-func _released() -> void:
-	pass
-
 # --- Sky feed ---
 func _on_minute() -> void:
 	_track()
@@ -60,8 +57,6 @@ func _on_minute() -> void:
 		active = mine
 		if active:
 			_retarget()
-		else:
-			_released()
 	if active:
 		_push_blend()
 
