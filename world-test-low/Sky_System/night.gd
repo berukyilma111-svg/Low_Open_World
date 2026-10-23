@@ -16,14 +16,19 @@ const AIRGLOW_RED := Color(0.65, 0.18, 0.08)
 
 @export var moon: Node3D
 @export var moon_base_angular_size: float = 0.009
+## How far the moon must move across the sky before the shader is told about it.
+@export_range(0.05, 5.0, 0.05) var moon_step_degrees: float = 0.5
 
 var is_night: bool:
 	get: return active
 
 var _earth_tilt: float
+var _sent_direction := Vector3.ZERO
+var _step_cos: float
 
 func _ready() -> void:
 	super()
+	_step_cos = cos(deg_to_rad(moon_step_degrees))
 	time.day_changed.connect(_on_day_changed)
 
 func _on_day_changed() -> void:
@@ -52,10 +57,18 @@ func _track() -> void:
 	var azimuth := _azimuth(angle, c, tan(tilt))
 	if moon:
 		moon.rotation = Vector3(altitude, azimuth, 0.0)
+	# Every sky uniform change re-renders the sky's lighting, so only resend the moon when it is
+	# visible (above the horizon, not washed out by daylight) and has moved a noticeable amount.
+	var direction := Vector3(cos(altitude) * sin(azimuth), sin(altitude), cos(altitude) * cos(azimuth))
+	if direction.y < -0.05 or sin(tod * PI) >= 0.8:
+		return
+	if direction.dot(_sent_direction) > _step_cos:
+		return
+	_sent_direction = direction
 	var swing := lerpf(0.93, 1.07, 0.5 + 0.5 * cos(TAU * fmod(t, ANOMALISTIC_MONTH_DAYS) / ANOMALISTIC_MONTH_DAYS))
 	sky.set_shader_parameter("moon_phase", phase)
 	sky.set_shader_parameter("moon_angular_size", moon_base_angular_size * swing)
-	sky.set_shader_parameter("moon_direction", Vector3(cos(altitude) * sin(azimuth), sin(altitude), cos(altitude) * cos(azimuth)))
+	sky.set_shader_parameter("moon_direction", direction)
 
 # Green fades from dusk to dawn, red peaks around 21:00 and 3:00; stronger in the dry season and under clear skies.
 func _airglow(since_dusk: float, dark: float, overlay: float) -> Color:
