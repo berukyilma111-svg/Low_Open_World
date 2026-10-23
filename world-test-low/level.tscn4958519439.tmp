@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://cybwdkfrgxcmq"]
+
+[ext_resource type="PackedScene" uid="uid://ceahmw3rp5uos" path="res://FPS_Controller/player.tscn" id="1_u52ul"]
+[ext_resource type="Script" uid="uid://dpek6rr5urjum" path="res://day_night.gd" id="1_vonw3"]
+
+[sub_resource type="PhysicalSkyMaterial" id="PhysicalSkyMaterial_oi3di"]
+rayleigh_color = Color(0.37217605, 0.55565155, 0.93314743, 1)
+ground_color = Color(0.828457, 0.71280354, 0.5824053, 1)
+energy_multiplier = 2.0
+
+[sub_resource type="Sky" id="Sky_vonw3"]
+sky_material = SubResource("PhysicalSkyMaterial_oi3di")
+
+[sub_resource type="Environment" id="Environment_oi3di"]
+background_mode = 2
+sky = SubResource("Sky_vonw3")
+tonemap_mode = 2
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_u52ul"]
+
+[sub_resource type="ConvexPolygonShape3D" id="ConvexPolygonShape3D_vonw3"]
+points = PackedVector3Array(-1, 0, -1, -1, 0, 1, 1, 0, -1, 1, 0, 1)
+
+[node name="Node3D" type="Node3D" unique_id=1205027848]
+
+[node name="Enviroment" type="Node" parent="." unique_id=1058952531]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Enviroment" unique_id=2079925107]
+environment = SubResource("Environment_oi3di")
+
+[node name="TimeLabel" type="Label" parent="Enviroment" unique_id=194670398]
+offset_right = 40.0
+offset_bottom = 23.0
+
+[node name="SunSetter" type="Node3D" parent="Enviroment" unique_id=1386465820]
+transform = Transform3D(-4.371139e-08, -1, 0, -1, 4.371139e-08, 8.742278e-08, -8.742278e-08, 3.821371e-15, -1, 0, 0, 0)
+
+[node name="Sun" type="DirectionalLight3D" parent="Enviroment/SunSetter" unique_id=927699974]
+transform = Transform3D(4.371139e-08, -3.821371e-15, -1, -8.742278e-08, -1, 0, -1, 8.742278e-08, -4.371139e-08, 0, 0, 0)
+light_angular_distance = 1.0
+light_bake_mode = 1
+shadow_enabled = true
+directional_shadow_mode = 0
+
+[node name="DayNight" type="Node" parent="." unique_id=2047369829 node_paths=PackedStringArray("sun_light", "World_Enviroment", "Time_debug_label")]
+script = ExtResource("1_vonw3")
+sun_light = NodePath("../Enviroment/SunSetter/Sun")
+World_Enviroment = NodePath("../Enviroment/WorldEnvironment")
+Time_debug_label = NodePath("../Enviroment/TimeLabel")
+DayDuration = 20.0
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1554696112]
+transform = Transform3D(39.99762, 0, 0.43632364, 0, 40, 0, -0.43632364, 0, 39.99762, 0, 0, 0)
+mesh = SubResource("PlaneMesh_u52ul")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="MeshInstance3D" unique_id=252042672]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/StaticBody3D" unique_id=240490580]
+shape = SubResource("ConvexPolygonShape3D_vonw3")
+
+[node name="Player" parent="." unique_id=1508272471 instance=ExtResource("1_u52ul")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.086981, 0)
+disable_mode = 2
+walk_speed = 2.5
+sprint_speed = 5.0
+crouch_speed = 1.5
+jump_velocity = 2.4
