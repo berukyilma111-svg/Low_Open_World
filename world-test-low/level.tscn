@@ -1,0 +1,136 @@
+[gd_scene format=3 uid="uid://cybwdkfrgxcmq"]
+
+[ext_resource type="Shader" uid="uid://dkhvv40nraals" path="res://Sky_System/Sky_Shader/Sky.gdshader" id="1_0b4ue"]
+[ext_resource type="PackedScene" uid="uid://ceahmw3rp5uos" path="res://FPS_Controller/player.tscn" id="1_u52ul"]
+[ext_resource type="Script" uid="uid://2bpkd4o4u4lu" path="res://Sky_System/time.gd" id="3_time"]
+[ext_resource type="Script" uid="uid://b602kt1shc1et" path="res://Sky_System/weather.gd" id="4_weather"]
+[ext_resource type="Script" uid="uid://dglp85w5tmwvs" path="res://Sky_System/day.gd" id="5_day"]
+[ext_resource type="Script" uid="uid://bol5gg753imrh" path="res://Sky_System/night.gd" id="6_night"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_0b4ue"]
+shader = ExtResource("1_0b4ue")
+shader_parameter/from_top = Color(0.02, 0.11, 0.39, 1)
+shader_parameter/from_horizon = Color(0.13, 0.12, 0.38, 1)
+shader_parameter/to_top = Color(0.02, 0.11, 0.39, 1)
+shader_parameter/to_horizon = Color(0.13, 0.12, 0.38, 1)
+shader_parameter/sky_blend = 0.0
+shader_parameter/horizon_sharpness = 3.0
+shader_parameter/sun_disc_color = Color(1, 0.95, 0.85, 1)
+shader_parameter/sun_angular_size = 0.05
+shader_parameter/sun_edge_softness = 0.004
+shader_parameter/sun_corona_size = 0.4
+shader_parameter/sun_corona_intensity = 0.6
+shader_parameter/sun_intensity = 0.0
+shader_parameter/moon_direction = Vector3(0, -1, 0)
+shader_parameter/moon_disc_color = Color(0.85, 0.87, 0.92, 1)
+shader_parameter/moon_angular_size = 0.009
+shader_parameter/moon_edge_softness = 0.2
+shader_parameter/moon_corona_size = 1.6
+shader_parameter/moon_corona_intensity = 0.35
+shader_parameter/moon_phase = 0.5
+shader_parameter/airglow_intensity = 0.0
+shader_parameter/airglow_band_height = 0.18
+shader_parameter/airglow_sharpness = 2.5
+shader_parameter/elapsed_time = 0.0
+
+[sub_resource type="Sky" id="Sky_1ainy"]
+sky_material = SubResource("ShaderMaterial_0b4ue")
+radiance_size = 0
+
+[sub_resource type="Environment" id="Environment_oi3di"]
+background_mode = 2
+sky = SubResource("Sky_1ainy")
+ambient_light_source = 3
+tonemap_mode = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_oi3di"]
+transparency = 1
+shading_mode = 0
+billboard_mode = 2
+
+[sub_resource type="QuadMesh" id="QuadMesh_0b4ue"]
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_u52ul"]
+
+[sub_resource type="ConvexPolygonShape3D" id="ConvexPolygonShape3D_vonw3"]
+points = PackedVector3Array(-1, 0, -1, -1, 0, 1, 1, 0, -1, 1, 0, 1)
+
+[node name="Node3D" type="Node3D" unique_id=1205027848]
+
+[node name="Enviroment" type="Node" parent="." unique_id=1058952531]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Enviroment" unique_id=2079925107]
+environment = SubResource("Environment_oi3di")
+
+[node name="TimeLabel" type="Label" parent="Enviroment" unique_id=194670398]
+offset_right = 40.0
+offset_bottom = 23.0
+text = "April 2 | Time: 9:49 PM"
+
+[node name="WeatherLabel" type="Label" parent="Enviroment" unique_id=2081667872]
+offset_top = 23.0
+offset_right = 40.0
+offset_bottom = 46.0
+
+[node name="World" type="Node" parent="." unique_id=2047369829]
+
+[node name="Time" type="Node" parent="World" unique_id=1677775173 node_paths=PackedStringArray("debug_label")]
+script = ExtResource("3_time")
+debug_label = NodePath("../../Enviroment/TimeLabel")
+minute_per_second = 120.0
+year = 2456
+month = 11
+day = 23
+hour = 6
+
+[node name="Weather" type="Node" parent="World" unique_id=774612203 node_paths=PackedStringArray("time", "debug_label")]
+script = ExtResource("4_weather")
+time = NodePath("../Time")
+debug_label = NodePath("../../Enviroment/WeatherLabel")
+
+[node name="Day" type="Node" parent="World" unique_id=1496512527 node_paths=PackedStringArray("sun", "time", "weather", "world_env")]
+script = ExtResource("5_day")
+sun = NodePath("../Sun")
+time = NodePath("../Time")
+weather = NodePath("../Weather")
+world_env = NodePath("../../Enviroment/WorldEnvironment")
+
+[node name="Night" type="Node" parent="World" unique_id=1023555828 node_paths=PackedStringArray("moon", "time", "weather", "world_env")]
+script = ExtResource("6_night")
+moon = NodePath("../Moon")
+moon_base_angular_size = 0.05
+time = NodePath("../Time")
+weather = NodePath("../Weather")
+world_env = NodePath("../../Enviroment/WorldEnvironment")
+
+[node name="Sun" type="DirectionalLight3D" parent="World" unique_id=927699974]
+transform = Transform3D(0.2778125, 0.7780934, 0.56337464, -8.855306e-08, -0.5864605, 0.8099779, 0.9606353, -0.22502205, -0.16292599, 0, 0, 0)
+light_color = Color(1.7823921, 1.7823921, 1.7823921, 1)
+light_energy = 2.0
+light_angular_distance = 1.0
+light_bake_mode = 1
+shadow_enabled = true
+directional_shadow_mode = 0
+
+[node name="Moon" type="Node3D" parent="World" unique_id=368152514]
+
+[node name="MoonTexture" type="MeshInstance3D" parent="World/Moon" unique_id=125431475]
+transform = Transform3D(10, 0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 400)
+material_override = SubResource("StandardMaterial3D_oi3di")
+mesh = SubResource("QuadMesh_0b4ue")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1554696112]
+transform = Transform3D(39.99762, 0, 0.43632364, 0, 40, 0, -0.43632364, 0, 39.99762, 0, 0, 15.431771)
+mesh = SubResource("PlaneMesh_u52ul")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="MeshInstance3D" unique_id=252042672]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MeshInstance3D/StaticBody3D" unique_id=240490580]
+shape = SubResource("ConvexPolygonShape3D_vonw3")
+
+[node name="Player" parent="." unique_id=1508272471 instance=ExtResource("1_u52ul")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9.086981, 5.949582)
+walk_speed = 2.5
+sprint_speed = 5.0
+crouch_speed = 1.5
+jump_velocity = 2.4
