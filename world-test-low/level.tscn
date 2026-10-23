@@ -2,23 +2,26 @@
 
 [ext_resource type="Shader" uid="uid://dkhvv40nraals" path="res://Sky.gdshader" id="1_0b4ue"]
 [ext_resource type="PackedScene" uid="uid://ceahmw3rp5uos" path="res://FPS_Controller/player.tscn" id="1_u52ul"]
-[ext_resource type="Script" uid="uid://dpek6rr5urjum" path="res://day_night.gd" id="1_vonw3"]
+[ext_resource type="Script" path="res://Sky_System/time.gd" id="3_time"]
+[ext_resource type="Script" path="res://Sky_System/weather.gd" id="4_weather"]
+[ext_resource type="Script" path="res://Sky_System/day.gd" id="5_day"]
+[ext_resource type="Script" path="res://Sky_System/night.gd" id="6_night"]
 [ext_resource type="Texture2D" uid="uid://bh5rs83fivq21" path="res://Sky_Assets/moon.png" id="2_oi3di"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_0b4ue"]
 shader = ExtResource("1_0b4ue")
-shader_parameter/top_color = Color(0.02, 0.11, 0.39, 1)
-shader_parameter/horizon_color = Color(0.13, 0.12, 0.38, 1)
-shader_parameter/ground_color = Color(0.02, 0.11, 0.39, 1)
+shader_parameter/from_top = Color(0.02, 0.11, 0.39, 1)
+shader_parameter/from_horizon = Color(0.13, 0.12, 0.38, 1)
+shader_parameter/to_top = Color(0.02, 0.11, 0.39, 1)
+shader_parameter/to_horizon = Color(0.13, 0.12, 0.38, 1)
+shader_parameter/sky_blend = 0.0
 shader_parameter/horizon_sharpness = 3.0
 shader_parameter/sun_disc_color = Color(1, 0.95, 0.85, 1)
-shader_parameter/sun_angular_size = 0.05000000074506
+shader_parameter/sun_angular_size = 0.05
 shader_parameter/sun_edge_softness = 0.004
-shader_parameter/sun_corona_size = 0.3999999910592
+shader_parameter/sun_corona_size = 0.4
 shader_parameter/sun_corona_intensity = 0.6
 shader_parameter/sun_intensity = 0.0
-shader_parameter/star_coverage = 0.20000000298023
-shader_parameter/star_max_size = 0.80999998375754
 shader_parameter/moon_direction = Vector3(0, -1, 0)
 shader_parameter/moon_disc_color = Color(0.85, 0.87, 0.92, 1)
 shader_parameter/moon_angular_size = 0.009
@@ -26,17 +29,13 @@ shader_parameter/moon_edge_softness = 0.2
 shader_parameter/moon_corona_size = 1.6
 shader_parameter/moon_corona_intensity = 0.35
 shader_parameter/moon_phase = 0.5
-shader_parameter/airglow_color = Color(0.1, 0.35, 0.3, 1)
 shader_parameter/airglow_intensity = 0.0
 shader_parameter/airglow_band_height = 0.18
 shader_parameter/airglow_sharpness = 2.5
 shader_parameter/elapsed_time = 0.0
-shader_parameter/weather_top_color = Color(0, 0, 0, 1)
-shader_parameter/weather_horizon_color = Color(0, 0, 0, 1)
-shader_parameter/weather_weight = 0.0
-shader_parameter/cloud_displacement = 0.0
 
 [sub_resource type="Sky" id="Sky_1ainy"]
+radiance_size = 0
 sky_material = SubResource("ShaderMaterial_0b4ue")
 
 [sub_resource type="Environment" id="Environment_oi3di"]
@@ -70,20 +69,41 @@ offset_right = 40.0
 offset_bottom = 23.0
 text = "April 2 | Time: 9:49 PM"
 
-[node name="World" type="Node" parent="." unique_id=2047369829 node_paths=PackedStringArray("Sun", "MoonTransform", "world_env", "debug_label")]
-script = ExtResource("1_vonw3")
-Sun = NodePath("Sun")
-MoonTransform = NodePath("Moon")
-world_env = NodePath("../Enviroment/WorldEnvironment")
-debug_label = NodePath("../Enviroment/TimeLabel")
+[node name="WeatherLabel" type="Label" parent="Enviroment"]
+offset_top = 23.0
+offset_right = 40.0
+offset_bottom = 46.0
+
+[node name="World" type="Node" parent="." unique_id=2047369829]
+
+[node name="Time" type="Node" parent="World" node_paths=PackedStringArray("debug_label")]
+script = ExtResource("3_time")
+debug_label = NodePath("../../Enviroment/TimeLabel")
 minute_per_second = 120.0
 year = 2456
 month = 11
 day = 23
 hour = 6
+
+[node name="Weather" type="Node" parent="World" node_paths=PackedStringArray("time", "debug_label")]
+script = ExtResource("4_weather")
+time = NodePath("../Time")
+debug_label = NodePath("../../Enviroment/WeatherLabel")
+
+[node name="Day" type="Node" parent="World" node_paths=PackedStringArray("sun", "time", "weather", "world_env")]
+script = ExtResource("5_day")
+sun = NodePath("../Sun")
+time = NodePath("../Time")
+weather = NodePath("../Weather")
+world_env = NodePath("../../Enviroment/WorldEnvironment")
+
+[node name="Night" type="Node" parent="World" node_paths=PackedStringArray("moon", "time", "weather", "world_env")]
+script = ExtResource("6_night")
+moon = NodePath("../Moon")
 moon_base_angular_size = 0.05
-star_coverage = 0.2
-star_max_size = 0.05
+time = NodePath("../Time")
+weather = NodePath("../Weather")
+world_env = NodePath("../../Enviroment/WorldEnvironment")
 
 [node name="Sun" type="DirectionalLight3D" parent="World" unique_id=927699974]
 transform = Transform3D(0.2778125, 0.7780934, 0.56337464, -8.855306e-08, -0.5864605, 0.8099779, 0.9606353, -0.22502205, -0.16292599, 0, 0, 0)
