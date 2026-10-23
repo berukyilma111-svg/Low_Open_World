@@ -19,11 +19,6 @@ uniform float sun_corona_size : hint_range(0.01, 0.5, 0.01) = 0.09;
 uniform float sun_corona_intensity : hint_range(0.0, 2.0, 0.01) = 0.6;
 uniform float sun_intensity = 0.0;
 
-group_uniforms stars;
-uniform float star_coverage : hint_range(0.0, 0.2, 0.001) = 0.015;
-uniform float star_max_size : hint_range(0.05, 0.9, 0.01) = 0.35;
-uniform float star_density : hint_range(20.0, 400.0, 1.0) = 120.0;
-
 group_uniforms moon;
 uniform vec3 moon_direction = vec3(0.0, -1.0, 0.0);
 uniform vec3 moon_disc_color : source_color = vec3(0.85, 0.87, 0.92);
@@ -68,24 +63,6 @@ vec3 draw_moon(vec3 dir) {
 	return moon_disc_color * (mask * lit + corona) * opacity;
 }
 
-float hash(vec3 p) {
-	p = fract(p * vec3(443.897, 441.423, 437.195));
-	p += dot(p, p.yzx + 19.19);
-	return fract((p.x + p.y) * p.z);
-}
-
-// One hash per pixel: the sky is split into cells and a few of them hold a star.
-vec3 draw_stars(vec3 dir) {
-	float night = 1.0 - smoothstep(0.05, 0.2, sun_intensity);
-	if (night <= 0.0) return vec3(0.0);
-	vec3 p = dir * star_density;
-	float h = hash(floor(p));
-	if (h > star_coverage) return vec3(0.0);
-	float size = star_max_size * 0.5 * (0.35 + 0.65 * h / star_coverage);
-	float d = length(fract(p) - 0.5);
-	return vec3(0.95, 0.90, 0.85) * smoothstep(size, 0.0, d) * night * 0.8;
-}
-
 vec3 draw_airglow(vec3 dir) {
 	float t = elapsed_time;
 	float height = abs(dir.y);
@@ -103,7 +80,7 @@ void sky() {
 	if (dir.y < 0.0) {
 		col = mix(col, top, min(-dir.y * 2.0, 1.0));
 	} else if (!AT_CUBEMAP_PASS) {
-		col += draw_sun(dir) + draw_moon(dir) + draw_stars(dir);
+		col += draw_sun(dir) + draw_moon(dir);
 		if (airglow_intensity > 0.0) col += draw_airglow(dir);
 		col = min(col, vec3(1.0));
 	}

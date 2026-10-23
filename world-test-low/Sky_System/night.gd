@@ -14,10 +14,6 @@ const DARKNESS: Array[float] = [0.0, 1.0, 1.0, 1.0, 0.5]
 @export var moon: Node3D
 @export var moon_base_angular_size: float = 0.009
 
-@export_group("Stars")
-@export_range(0.0, 0.2, 0.001) var star_coverage: float = 0.015
-@export_range(0.05, 0.9, 0.01) var star_max_size: float = 0.35
-
 var is_night: bool:
 	get: return active
 
@@ -26,8 +22,6 @@ var _earth_tilt: float
 func _ready() -> void:
 	super()
 	time.day_changed.connect(_on_day_changed)
-	sky.set_shader_parameter("star_coverage", star_coverage)
-	sky.set_shader_parameter("star_max_size", star_max_size)
 
 func _on_day_changed() -> void:
 	_earth_tilt = 0.4092797 * sin(TAU / time.year_length() * (time.day_of_year - 192.0))
