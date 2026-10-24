@@ -18,7 +18,7 @@ shader_parameter/horizon_sharpness = 3.0
 shader_parameter/sun_disc_color = Color(1, 0.95, 0.85, 1)
 shader_parameter/sun_angular_size = 0.05
 shader_parameter/sun_edge_softness = 0.004
-shader_parameter/sun_corona_size = 0.4
+shader_parameter/sun_corona_size = 0.12
 shader_parameter/sun_corona_intensity = 0.6
 shader_parameter/sun_intensity = 0.0
 shader_parameter/moon_direction = Vector3(0, -1, 0)
@@ -28,10 +28,6 @@ shader_parameter/moon_edge_softness = 0.2
 shader_parameter/moon_corona_size = 1.6
 shader_parameter/moon_corona_intensity = 0.35
 shader_parameter/moon_phase = 0.5
-shader_parameter/airglow_intensity = 0.0
-shader_parameter/airglow_band_height = 0.18
-shader_parameter/airglow_sharpness = 2.5
-shader_parameter/elapsed_time = 0.0
 
 [sub_resource type="Sky" id="Sky_1ainy"]
 sky_material = SubResource("ShaderMaterial_0b4ue")
