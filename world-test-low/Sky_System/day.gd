@@ -55,8 +55,6 @@ func _track() -> void:
 	if sun:
 		sun.rotation.x = _altitude(_tilt_bias_v, c)
 		sun.rotation.y = _azimuth(angle, c, _tilt_tan)
-		# Below the horizon the light only costs a shadow pass, so switch it off.
-		sun.visible = sun.rotation.x < 0.1
 		var dim := 1.0 - weather_dimming if weather.has_flag(WeatherScript.DIMMING_FLAGS) else 1.0
 		sun.light_energy = lerpf(0.01, 0.8 * _climate * dim, sun_f)
 	var intensity := int(sun_f * 64.0)
