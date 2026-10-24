@@ -11,8 +11,7 @@ const TOP: Array[Color] = [Color(0.93, 0.52, 0.441), Color(0.06, 0.052, 0.223), 
 const HORIZON: Array[Color] = [Color(0.988, 0.755, 0.554), Color(0.193, 0.183, 0.526), Color(0.006, 0.045, 0.214), Color(0.23, 0.23, 0.37), Color(0.861, 0.522, 0.212)]
 const DARKNESS: Array[float] = [0.0, 1.0, 1.0, 1.0, 0.5]
 # Airglow sits in the same band as the horizon, so it is mixed into the horizon colour.
-const AIRGLOW_GREEN := Color(0.12, 0.42, 0.32)
-const AIRGLOW_RED := Color(0.65, 0.18, 0.08)
+const AIRGLOW := Color(0.12, 0.42, 0.32)
 
 @export var moon: Node3D
 @export var moon_base_angular_size: float = 0.009
@@ -44,7 +43,7 @@ func _target(hour: float, w: int) -> Array:
 	var weight: float = o[WeatherScript.WEIGHT] * (1.0 - dark * 0.85)
 	var top := _palette(TOP, since_dusk).darkened(dark * 0.72).lerp(o[WeatherScript.TOP].darkened(dark * 0.8), weight)
 	var horizon := _palette(HORIZON, since_dusk).darkened(dark * 0.68).lerp(o[WeatherScript.HORIZON].darkened(dark * 0.78), weight)
-	return [top, horizon + _airglow(since_dusk, dark, o[WeatherScript.WEIGHT])]
+	return [top, horizon + AIRGLOW * dark * (1.0 - o[WeatherScript.WEIGHT]) * 0.15]
 
 func _track() -> void:
 	var tod := time.time_of_day()
@@ -69,12 +68,6 @@ func _track() -> void:
 	sky.set_shader_parameter("moon_phase", phase)
 	sky.set_shader_parameter("moon_angular_size", moon_base_angular_size * swing)
 	sky.set_shader_parameter("moon_direction", direction)
-
-# Green fades from dusk to dawn, red peaks around 21:00 and 3:00; stronger in the dry season and under clear skies.
-func _airglow(since_dusk: float, dark: float, overlay: float) -> Color:
-	var night := since_dusk / 12.0
-	var strength := (0.35 if time.season == 1 else 0.12) * dark * (1.0 - overlay) * (0.75 + 0.25 * sin(time.year * 0.57))
-	return (AIRGLOW_GREEN * clampf(1.0 - night, 0.2, 1.0) + AIRGLOW_RED * maxf(0.0, sin(night * TAU * 2.0)) * 0.9) * strength
 
 static func _darkness(since_dusk: float) -> float:
 	var i := clampi(int(since_dusk / TimeScript.STOP_HOURS), 0, DARKNESS.size() - 2)
