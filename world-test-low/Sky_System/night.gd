@@ -1,15 +1,16 @@
 class_name NightScript
 extends SkyFeed
-## Owns the sky from sunset (18:00) to sunrise (6:30): the moon's path, phase and size over the
-## month and year, and the night sky colours with the weather overlay and airglow applied.
+## Owns the sky while the sun is down, from sunset to sunrise: the moon's path, phase and size over
+## the month and year, and the night sky colours with the weather overlay and airglow applied.
 
 const SYNODIC_MONTH_DAYS := 29.53059
 const ANOMALISTIC_MONTH_DAYS := 27.55
 
-# Night sky at 18:00, 21:00, 0:00, 3:00, 6:00, and how dark each point is (0 = untouched, 1 = full night)
-const TOP: Array[Color] = [Color(0.93, 0.52, 0.441), Color(0.06, 0.052, 0.223), Color(0.065, 0.058, 0.227), Color(0.0, 0.14, 0.25), Color(0.86, 0.638, 0.43)]
-const HORIZON: Array[Color] = [Color(0.988, 0.755, 0.554), Color(0.193, 0.183, 0.526), Color(0.006, 0.045, 0.214), Color(0.23, 0.23, 0.37), Color(0.861, 0.522, 0.212)]
-const DARKNESS: Array[float] = [0.0, 1.0, 1.0, 1.0, 0.5]
+# Night sky by how far the sun is below the horizon, in degrees: the sunset/sunrise colours at 0
+# (shared with DayScript), then blue hour, nautical twilight and full night.
+const DEPTHS: Array[float] = [0.0, 6.0, 12.0, 18.0]
+const TOP: Array[Color] = [Color(0.16, 0.2, 0.42), Color(0.05, 0.07, 0.2), Color(0.015, 0.018, 0.06)]
+const HORIZON: Array[Color] = [Color(0.55, 0.38, 0.5), Color(0.12, 0.12, 0.3), Color(0.03, 0.04, 0.1)]
 # Airglow sits in the same band as the horizon, so it is mixed into the horizon colour.
 const AIRGLOW := Color(0.12, 0.42, 0.32)
 
@@ -21,34 +22,30 @@ const AIRGLOW := Color(0.12, 0.42, 0.32)
 var is_night: bool:
 	get: return active
 
-var _earth_tilt: float
 var _sent_direction := Vector3.ZERO
 var _step_cos: float
 
 func _ready() -> void:
 	super()
 	_step_cos = cos(deg_to_rad(moon_step_degrees))
-	time.day_changed.connect(_on_day_changed)
-
-func _on_day_changed() -> void:
-	_earth_tilt = 0.4092797 * sin(TAU / time.year_length() * (time.day_of_year - 192.0))
 
 func _owns(hour: float) -> bool:
-	return hour >= DayScript.SUNSET or hour < DayScript.SUNRISE
+	return sun_altitude(hour) < HORIZON_ALTITUDE
 
 func _target(hour: float, w: int) -> Array:
-	var since_dusk := fposmod(hour - DayScript.SUNSET, 24.0)
-	var dark := _darkness(since_dusk)
+	var depth := -sun_altitude(hour)
+	var dawn := hour < 12.0
+	var dark := clampf(depth / 18.0, 0.0, 1.0)
 	var o: Array = weather.data(w)
 	var weight: float = o[WeatherScript.WEIGHT] * (1.0 - dark * 0.85)
-	var top := _palette(TOP, since_dusk).darkened(dark * 0.72).lerp(o[WeatherScript.TOP].darkened(dark * 0.8), weight)
-	var horizon := _palette(HORIZON, since_dusk).darkened(dark * 0.68).lerp(o[WeatherScript.HORIZON].darkened(dark * 0.78), weight)
+	var top := _curve(DEPTHS, DayScript.DAWN_TOP if dawn else DayScript.DUSK_TOP, TOP, depth).lerp(o[WeatherScript.TOP].darkened(dark * 0.8), weight)
+	var horizon := _curve(DEPTHS, DayScript.DAWN_HORIZON if dawn else DayScript.DUSK_HORIZON, HORIZON, depth).lerp(o[WeatherScript.HORIZON].darkened(dark * 0.78), weight)
 	return [top, horizon + AIRGLOW * dark * (1.0 - o[WeatherScript.WEIGHT]) * 0.15]
 
 func _track() -> void:
 	var tod := time.time_of_day()
 	var t := time.total_days + tod
-	var tilt := -_earth_tilt + 0.0897 * sin(t * 0.22997)
+	var tilt := -_sun_tilt + 0.0897 * sin(t * 0.22997)
 	var phase := fmod(t, SYNODIC_MONTH_DAYS) / SYNODIC_MONTH_DAYS
 	var angle := (tod - phase - 1.0) * TAU
 	var c := cos(angle)
@@ -68,7 +65,3 @@ func _track() -> void:
 	sky.set_shader_parameter("moon_phase", phase)
 	sky.set_shader_parameter("moon_angular_size", moon_base_angular_size * swing)
 	sky.set_shader_parameter("moon_direction", direction)
-
-static func _darkness(since_dusk: float) -> float:
-	var i := clampi(int(since_dusk / TimeScript.STOP_HOURS), 0, DARKNESS.size() - 2)
-	return lerpf(DARKNESS[i], DARKNESS[i + 1], clampf(since_dusk / TimeScript.STOP_HOURS - i, 0.0, 1.0))
