@@ -16,9 +16,9 @@ shader_parameter/to_horizon = Color(0.13, 0.12, 0.38, 1)
 shader_parameter/sky_blend = 0.0
 shader_parameter/horizon_sharpness = 3.0
 shader_parameter/sun_disc_color = Color(1, 0.95, 0.85, 1)
-shader_parameter/sun_angular_size = 0.05
+shader_parameter/sun_angular_size = 0.016
 shader_parameter/sun_edge_softness = 0.004
-shader_parameter/sun_corona_size = 0.12
+shader_parameter/sun_corona_size = 0.07
 shader_parameter/sun_corona_intensity = 0.6
 shader_parameter/sun_intensity = 0.0
 shader_parameter/moon_direction = Vector3(0, -1, 0)
@@ -38,13 +38,6 @@ background_mode = 2
 sky = SubResource("Sky_1ainy")
 ambient_light_source = 3
 tonemap_mode = 2
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_oi3di"]
-transparency = 1
-shading_mode = 0
-billboard_mode = 2
-
-[sub_resource type="QuadMesh" id="QuadMesh_0b4ue"]
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_u52ul"]
 
@@ -94,7 +87,7 @@ world_env = NodePath("../../Enviroment/WorldEnvironment")
 [node name="Night" type="Node" parent="World" unique_id=1023555828 node_paths=PackedStringArray("moon", "time", "weather", "world_env")]
 script = ExtResource("6_night")
 moon = NodePath("../Moon")
-moon_base_angular_size = 0.05
+moon_base_angular_size = 0.015
 time = NodePath("../Time")
 weather = NodePath("../Weather")
 world_env = NodePath("../../Enviroment/WorldEnvironment")
@@ -109,11 +102,6 @@ shadow_enabled = true
 directional_shadow_mode = 0
 
 [node name="Moon" type="Node3D" parent="World" unique_id=368152514]
-
-[node name="MoonTexture" type="MeshInstance3D" parent="World/Moon" unique_id=125431475]
-transform = Transform3D(10, 0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 400)
-material_override = SubResource("StandardMaterial3D_oi3di")
-mesh = SubResource("QuadMesh_0b4ue")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1554696112]
 transform = Transform3D(39.99762, 0, 0.43632364, 0, 40, 0, -0.43632364, 0, 39.99762, 0, 0, 15.431771)
