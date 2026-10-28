@@ -7,9 +7,10 @@ extends Node
 # Fields of each entry in LOOKS
 enum { TOP, HORIZON, WEIGHT, CLOUD, RAIN, DUST, HEAT }
 
-# [top tint, horizon tint, tint weight, cloud, rain, dust, heat]
+# [top tint, horizon tint, tint weight, cloud, rain, dust, heat]. Clear has no tint: a clear sky is
+# just the time-cycle colours in sky.gd.
 const LOOKS = {
-	WeatherData.Type.CLEAR: [Color(0.44, 0.729, 1.0), Color(0.89, 0.646, 0.347), 0.6, 0.0, 0.0, 0.0, 0.0],
+	WeatherData.Type.CLEAR: [Color(0.44, 0.729, 1.0), Color(0.89, 0.646, 0.347), 0.0, 0.0, 0.0, 0.0, 0.0],
 	WeatherData.Type.CLOUDY: [Color(0.357, 0.404, 0.451), Color(0.498, 0.549, 0.6), 0.6, 0.6, 0.0, 0.0, 0.0],
 	WeatherData.Type.DRIZZLE: [Color(0.3, 0.35, 0.4), Color(0.4, 0.45, 0.5), 0.75, 0.7, 0.3, 0.0, 0.0],
 	WeatherData.Type.MONSOON: [Color(0.2, 0.25, 0.3), Color(0.3, 0.35, 0.4), 0.85, 0.85, 0.7, 0.0, 0.0],

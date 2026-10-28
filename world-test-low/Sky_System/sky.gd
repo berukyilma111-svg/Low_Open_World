@@ -56,7 +56,7 @@ func on_minute(c: Celestial, t: TimeScript) -> void:
 		_put(&"moon_angular_size", moon_base_angular_size * c.moon_size(), moon_base_angular_size * 0.002)
 	var glow := 0.0
 	if light <= 0.0:  # airglow and stars only once the sun is down
-		glow = (0.35 if t.season == Celestial.Season.BEGA else 0.12) * _at(DARKNESS, h) * (1.0 - _now[WeatherConditions.WEIGHT]) * (0.75 + 0.25 * sin(t.year * 0.57))
+		glow = (0.35 if t.season == Celestial.Season.BEGA else 0.12) * _at(DARKNESS, h) * 0.4 * (1.0 - _now[WeatherConditions.CLOUD]) * (0.75 + 0.25 * sin(t.year * 0.57))
 		_put(&"star_rotation", c.star_rotation(), 0.005)
 	_put(&"airglow_intensity", glow, 0.001)
 	if glow > 0.0:  # 0 at dusk, PI at midnight, TAU at dawn, so it never snaps at midnight
