@@ -1,9 +1,10 @@
 class_name WeatherConditions
 extends Node
 ## Step 3b. What each weather looks like and does: how it tints the sky, how much cloud, rain,
-## dust and heat it brings, how strong the sunlight is and how much fog it lays down. Sends the
-## cloud, rain, dust and heat amounts to project-wide shader globals, ready for future shaders,
-## then hands the whole profile on to Sky, which plays out the tint, sunlight and fog.
+## dust and heat it brings, how strong the sunlight is, how much fog it lays down and how hard the
+## wind blows. Sends the cloud, rain, dust, heat and wind values to project-wide shader globals,
+## ready for future shaders, then hands the whole profile on to Sky, which plays out the tint,
+## sunlight and fog.
 
 # Fields of each entry in WEATHER_PROFILES
 enum { SKY_TOP_TINT, SKY_HORIZON_TINT, TINT_STRENGTH, CLOUD_AMOUNT, RAIN_AMOUNT, DUST_AMOUNT, HEAT_AMOUNT, SUN_STRENGTH, FOG_AMOUNT }
@@ -34,10 +35,37 @@ const SHADER_GLOBAL_FOR_AMOUNT = {
 	HEAT_AMOUNT: &"heatwave_intensity",
 }
 
+# Wind strength range for each weather (0 = still, 1 = strongest). A strength inside the range is
+# picked each time the weather starts, so no two periods of the same weather blow identically.
+const WIND_STRENGTH_RANGE = {
+	WeatherData.Type.CLEAR: Vector2(0.1, 0.3),
+	WeatherData.Type.CLOUDY: Vector2(0.2, 0.4),
+	WeatherData.Type.DRIZZLE: Vector2(0.3, 0.5),
+	WeatherData.Type.MONSOON: Vector2(0.5, 0.7),
+	WeatherData.Type.HEAVYRAIN: Vector2(0.6, 0.8),
+	WeatherData.Type.HAIL: Vector2(0.6, 0.9),
+	WeatherData.Type.RESIDUAL_SHOWER: Vector2(0.3, 0.5),
+	WeatherData.Type.MORNING_FOG: Vector2(0.0, 0.1),
+	WeatherData.Type.HEAT_WAVE: Vector2(0.0, 0.2),
+	WeatherData.Type.DUST_STORM: Vector2(0.6, 1.0),
+	WeatherData.Type.DRY_LIGHTNING: Vector2(0.4, 0.7),
+	WeatherData.Type.CONVECTIVE_RAIN: Vector2(0.5, 0.8),
+}
+# Most the wind direction can swing when the weather changes (radians; PI / 4 = 45 degrees)
+const WIND_DIRECTION_SWING := PI / 4.0
+
 @export var sky: SkyScript
 @export var heatwave_strength: float = 0.16  # heatwave_intensity sent during a heat wave
 
+## The world's wind, for scripts to read; shaders read the wind_strength and wind_direction globals.
+var wind_strength := 0.0
+var wind_direction := Vector2.RIGHT  # horizontal and normalised: x = world X, y = world Z
 var _last_sent_amounts := {}
+var _random := RandomNumberGenerator.new()
+
+func _ready() -> void:
+	_random.randomize()
+	wind_direction = Vector2.RIGHT.rotated(_random.randf() * TAU)
 
 ## Called by Weather Data at the start of each 3-hour weather period.
 func apply_weather(current_weather: int, next_weather: int) -> void:
@@ -49,4 +77,14 @@ func apply_weather(current_weather: int, next_weather: int) -> void:
 		if _last_sent_amounts.get(amount_field) != amount:
 			_last_sent_amounts[amount_field] = amount
 			RenderingServer.global_shader_parameter_set(SHADER_GLOBAL_FOR_AMOUNT[amount_field], amount)
+	_set_wind(current_weather)
 	sky.set_weather_profiles(current_profile, WEATHER_PROFILES[next_weather])
+
+# Picks a wind strength from the weather's range and swings the direction a little from where
+# it was, then publishes both as shader globals (declared in project.godot).
+func _set_wind(weather: int) -> void:
+	var strength_range: Vector2 = WIND_STRENGTH_RANGE[weather]
+	wind_strength = _random.randf_range(strength_range.x, strength_range.y)
+	wind_direction = wind_direction.rotated(_random.randf_range(-WIND_DIRECTION_SWING, WIND_DIRECTION_SWING))
+	RenderingServer.global_shader_parameter_set(&"wind_strength", wind_strength)
+	RenderingServer.global_shader_parameter_set(&"wind_direction", wind_direction)

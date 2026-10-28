@@ -86,6 +86,14 @@ dust_amount={
 "type": "float",
 "value": 0.0
 }
+wind_strength={
+"type": "float",
+"value": 0.0
+}
+wind_direction={
+"type": "vec2",
+"value": Vector2(1, 0)
+}
 heatwave_frequency={
 "type": "float",
 "value": 30.0
