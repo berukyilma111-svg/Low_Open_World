@@ -40,13 +40,28 @@ func _announce() -> void:
 	stop_changed.emit(stop)
 	_tick()
 
+# Every frame: add real time to the clock, and only do the rest once a whole game minute has passed.
 func _process(delta: float) -> void:
-	_minute_fraction += delta * minute_per_second
-	if _minute_fraction < 1.0:
+	var minutes := _whole_minutes_passed(delta)
+	if minutes == 0:
 		return
-	var steps := int(_minute_fraction)
-	_minute_fraction -= steps
-	minute += steps
+	var new_day := _add_minutes(minutes)
+	# Date first, then stop: weather rolled at midnight must already see the new season.
+	if new_day:
+		_start_new_day()
+	_check_stop()
+	_tick()
+
+# Turns real seconds into game minutes; the leftover fraction is kept for the next frame so no time is lost.
+func _whole_minutes_passed(delta: float) -> int:
+	_minute_fraction += delta * minute_per_second
+	var minutes := int(_minute_fraction)
+	_minute_fraction -= minutes
+	return minutes
+
+# Carries minutes into hours and hours into days. Returns true if midnight was crossed.
+func _add_minutes(minutes: int) -> bool:
+	minute += minutes
 	var new_day := false
 	while minute >= 60:
 		minute -= 60
@@ -55,18 +70,22 @@ func _process(delta: float) -> void:
 			hour = 0
 			new_day = true
 			_advance_day()
-	# Date first, then stop: weather rolled at midnight must already see the new season.
-	if new_day:
-		var old_season := season
-		_update_date()
-		day_changed.emit()
-		if season != old_season:
-			season_changed.emit(season)
+	return new_day
+
+# Recalculates the date and season, then announces the new day (and the new season, if it changed).
+func _start_new_day() -> void:
+	var old_season := season
+	_update_date()
+	day_changed.emit()
+	if season != old_season:
+		season_changed.emit(season)
+
+# Announces when the clock enters a new 3-hour stop.
+func _check_stop() -> void:
 	var new_stop := int(hour / STOP_HOURS)
 	if new_stop != stop:
 		stop = new_stop
 		stop_changed.emit(stop)
-	_tick()
 
 func _tick() -> void:
 	minute_ticked.emit()
