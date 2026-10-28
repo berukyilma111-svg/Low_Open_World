@@ -50,14 +50,12 @@ func on_minute(c: Celestial, t: TimeScript) -> void:
 		moon.rotation = Vector3(m.x, m.y, 0.0)
 	# The shader only draws above the horizon; stop feeding it once the moon is well below it.
 	var dir := Vector3(cos(m.x) * sin(m.y), -sin(m.x), cos(m.x) * cos(m.y))
-	var hidden := -moon_base_angular_size * 2.0
-	if dir.y > hidden or _sent.get(&"moon_direction", Vector3.UP).y > hidden:
+	if maxf(dir.y, _sent.get(&"moon_direction", Vector3.UP).y) > -moon_base_angular_size * 2.0:
 		_put(&"moon_direction", dir, moon_base_angular_size * 0.02)
 		_put(&"moon_phase", c.moon_phase(), 0.0005)
 		_put(&"moon_angular_size", moon_base_angular_size * c.moon_size(), moon_base_angular_size * 0.002)
-	# Airglow and stars only once the sun is down.
 	var glow := 0.0
-	if light <= 0.0:
+	if light <= 0.0:  # airglow and stars only once the sun is down
 		glow = (0.35 if t.season == Celestial.Season.BEGA else 0.12) * _at(DARKNESS, h) * (1.0 - _now[WeatherConditions.WEIGHT]) * (0.75 + 0.25 * sin(t.year * 0.57))
 		_put(&"star_rotation", c.star_rotation(), 0.005)
 	_put(&"airglow_intensity", glow, 0.001)
@@ -85,9 +83,8 @@ func _blend(h: float, end_hour: float) -> void:
 func _colours(hour: float, w: Array) -> Array:
 	var dark: float = _at(DARKNESS, hour)
 	var weight: float = w[WeatherConditions.WEIGHT] * (1.0 - dark * 0.85)
-	var top: Color = _at(TOP, hour).darkened(dark * 0.72).lerp(w[WeatherConditions.TOP].darkened(dark * 0.8), weight)
-	var horizon: Color = _at(HORIZON, hour).darkened(dark * 0.68).lerp(w[WeatherConditions.HORIZON].darkened(dark * 0.78), weight)
-	return [top, horizon]
+	return [_at(TOP, hour).darkened(dark * 0.72).lerp(w[WeatherConditions.TOP].darkened(dark * 0.8), weight),
+		_at(HORIZON, hour).darkened(dark * 0.68).lerp(w[WeatherConditions.HORIZON].darkened(dark * 0.78), weight)]
 
 # Blends the two 3-hour table points either side of `hour`, wrapping past midnight.
 static func _at(table: Array, hour: float):

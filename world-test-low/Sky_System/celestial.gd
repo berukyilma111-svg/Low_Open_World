@@ -42,10 +42,6 @@ func _process(delta: float) -> void:
 	days += delta * minute_per_second / 1440.0
 	time.advance(self)
 
-## Completed orbits; a new one starts the Ethiopian new year.
-func orbits() -> int:
-	return int(days / ORBIT_DAYS)
-
 func declination() -> float:
 	return asin(sin(AXIAL_TILT) * sin(_longitude()))
 
