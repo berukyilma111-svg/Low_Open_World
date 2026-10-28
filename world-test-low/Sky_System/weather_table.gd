@@ -1,9 +1,7 @@
-class_name WeatherScript
-extends Node
-## Downstream of the season: rolls the weather for each 3-hour stop and publishes its sky overlay
-## and flags. DayScript / NightScript read `current` and `upcoming`; nothing here touches the sky.
-
-signal weather_changed
+class_name WeatherTable
+extends RefCounted
+## Weather data and the roll that picks it. Pure: the same season, date and hour always give the
+## same weather, so nothing has to be remembered between stops. SkySystem calls `roll` on each stop.
 
 enum Type { CLEAR, CLOUDY, DRIZZLE, MONSOON, HEAVYRAIN, HAIL, RESIDUAL_SHOWER, MORNING_FOG, HEAT_WAVE, DUST_STORM, DRY_LIGHTNING, CONVECTIVE_RAIN }
 enum Flag { CLOUDS = 1, RAIN = 2, HAIL = 4, FOG = 8, HEAT = 16, DUST = 32, WIND = 64, LIGHTNING = 128 }
@@ -37,38 +35,16 @@ const SEASON_POOLS = {
 
 const DIMMING_FLAGS := Flag.CLOUDS | Flag.RAIN | Flag.HAIL | Flag.FOG | Flag.DUST
 
-@export var time: TimeScript
-@export var debug_label: Label
-@export var chance_override := {}
-@export var heatwave_strength: float = 0.16
-
-var current: int = Type.CLEAR
-var upcoming: int = Type.CLEAR
-var _rolled := false
-
-func _ready() -> void:
-	time.stop_changed.connect(_on_stop_changed)
-
-func _on_stop_changed(stop: int) -> void:
-	var start := stop * TimeScript.STOP_HOURS
-	current = upcoming if _rolled else _roll(start)
-	upcoming = _roll(fmod(start + TimeScript.STOP_HOURS, 24.0))
-	_rolled = true
-	RenderingServer.global_shader_parameter_set("heatwave_intensity", heatwave_strength if has_flag(Flag.HEAT) else 0.0)
-	if debug_label:
-		debug_label.text = "%s => %s" % [TYPES[current][NAME], TYPES[upcoming][NAME]]
-	weather_changed.emit()
-
-func has_flag(flag: int, type: int = current) -> bool:
+static func has_flag(type: int, flag: int) -> bool:
 	return (TYPES[type][FLAGS] & flag) != 0
 
-func data(type: int) -> Array:
+static func data(type: int) -> Array:
 	return TYPES[type]
 
-func _roll(hour: float) -> int:
+static func roll(season: int, day_of_year: int, year: int, hour: float, chance_override: Dictionary = {}) -> int:
 	var eligible: Array = []
 	var total := 0
-	for w in SEASON_POOLS.get(time.season, [Type.CLEAR]):
+	for w in SEASON_POOLS.get(season, [Type.CLEAR]):
 		var entry: Array = TYPES[w]
 		if entry[FROM_HOUR] >= 0.0 and (hour < entry[FROM_HOUR] or hour > entry[TO_HOUR]):
 			continue
@@ -77,9 +53,9 @@ func _roll(hour: float) -> int:
 		eligible.append([w, chance])
 	if total <= 0:
 		return Type.CLEAR
-	var roll := (time.day_of_year * 37 + int(hour) * 17 + time.year * 13) % total
+	var r := (day_of_year * 37 + int(hour) * 17 + year * 13) % total
 	for e in eligible:
-		roll -= e[1]
-		if roll < 0:
+		r -= e[1]
+		if r < 0:
 			return e[0]
 	return Type.CLEAR
