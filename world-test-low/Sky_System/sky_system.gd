@@ -81,7 +81,7 @@ func on_day(t: TimeScript) -> void:
 
 # --- Every 3 hours: weather is rolled fresh from the date, so midnight always sees the new season ---
 func on_stop(t: TimeScript) -> void:
-	var start := t.stop() * TimeScript.STOP_HOURS
+	var start := t.hour - t.hour % TimeScript.STOP_HOURS
 	var next_hour := (start + TimeScript.STOP_HOURS) % 24
 	# The stop after 21:00 is tomorrow. Only the forecast's blend target uses this; the stop itself
 	# is always rolled from its real date when it arrives.
@@ -100,7 +100,7 @@ func on_stop(t: TimeScript) -> void:
 
 # --- Every game minute: move the sun and moon, hand the sky between day and night, blend colours ---
 func on_minute(t: TimeScript) -> void:
-	var day_now := day.owns(t.hours())
+	var day_now := day.owns(t.time_of_day() * 24.0)
 	if day_now != is_day or not _started:
 		if day_now and _started:
 			night.released()
@@ -116,10 +116,10 @@ func on_minute(t: TimeScript) -> void:
 
 # One from -> to colour blend per stop, picked up from whatever is on screen.
 func _palette(t: TimeScript, retarget: bool) -> void:
-	var h := t.hours()
+	var h := t.time_of_day() * 24.0
 	if retarget:
 		_start_hour = h
-		_end_hour = (t.stop() + 1) * TimeScript.STOP_HOURS
+		_end_hour = t.hour - t.hour % TimeScript.STOP_HOURS + TimeScript.STOP_HOURS
 		_from = _shown if _started else _target(_start_hour, current)
 		_to = _target(_end_hour, upcoming)
 		put(&"from_top", _from[0])

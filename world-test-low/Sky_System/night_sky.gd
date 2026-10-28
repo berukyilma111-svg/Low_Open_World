@@ -69,7 +69,7 @@ func released() -> void:
 	system.put(&"airglow_intensity", 0.0)
 
 func _update_airglow(t: TimeScript) -> void:
-	var since_dusk := fposmod(t.hours() - DaySky.SUNSET, 24.0)
+	var since_dusk := fposmod(t.time_of_day() * 24.0 - DaySky.SUNSET, 24.0)
 	var solar_cycle := 0.75 + 0.25 * sin(t.year * 0.57)
 	var season_glow := 0.35 if t.season() == 1 else 0.12
 	var clear_sky: float = 1.0 - WeatherTable.data(system.current)[WeatherTable.WEIGHT]

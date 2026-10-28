@@ -69,14 +69,9 @@ func _on_minutes_passed() -> void:
 		debug_label.text = "Year %d | %s %d | [%s] | %d:%02d %s" % [year, MONTH_NAMES[month - 1], day, SEASON_NAMES[season()], 12 if hour % 12 == 0 else hour % 12, minute, "PM" if hour >= 12 else "AM"]
 
 # --- Read by the sky; worked out from the date when asked, nothing stored ---
-func hours() -> float:
-	return hour + minute / 60.0
-
+## 0.0 at midnight, 0.5 at noon. Multiply by 24 for decimal hours.
 func time_of_day() -> float:
 	return (hour * 60 + minute) / 1440.0
-
-func stop() -> int:
-	return hour / STOP_HOURS
 
 func day_of_year() -> int:
 	return (month - 1) * 30 + day
