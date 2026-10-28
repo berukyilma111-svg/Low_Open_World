@@ -14,7 +14,7 @@ const DARKNESS: Array[float] = [1.0, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0]
 @export var world_env: WorldEnvironment
 @export_range(16, 1024) var blend_steps: int = 128  # sky blend values per stop; each one re-renders the sky
 @export_range(0.0, 1.0) var weather_dimming: float = 0.5  # how much cloud or dust cuts sunlight
-@export var moon_base_angular_size: float = 0.009
+@export var moon_base_angular_size: float = 0.05  # radius in radians (the real moon is ~0.0045)
 
 var _shader: ShaderMaterial
 var _sent := {}
