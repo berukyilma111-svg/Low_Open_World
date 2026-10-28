@@ -26,7 +26,7 @@ func owns(hour: float) -> bool:
 
 # Seasonal sunlight only moves once a day.
 func on_day(t: TimeScript) -> void:
-	_climate = 0.5 + 0.5 * cos(TAU / t.year_length() * (t.day_of_year - 105.0))
+	_climate = 0.5 + 0.5 * cos(TAU / t.year_length() * (t.day_of_year() - 105.0))
 
 func on_stop(_t: TimeScript) -> void:
 	var hot := WeatherTable.has_flag(system.current, WeatherTable.Flag.HEAT)

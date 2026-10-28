@@ -30,7 +30,7 @@ func owns(hour: float) -> bool:
 
 func track(t: TimeScript) -> void:
 	var tod := t.time_of_day()
-	var days := t.total_days + tod
+	var days := t.total_days() + tod
 	var tilt := -system.tilt + 0.0897 * sin(days * 0.22997)
 	var phase := fmod(days, SYNODIC_MONTH_DAYS) / SYNODIC_MONTH_DAYS
 	var angle := (tod - phase - 1.0) * TAU
@@ -71,7 +71,7 @@ func released() -> void:
 func _update_airglow(t: TimeScript) -> void:
 	var since_dusk := fposmod(t.hours() - DaySky.SUNSET, 24.0)
 	var solar_cycle := 0.75 + 0.25 * sin(t.year * 0.57)
-	var season_glow := 0.35 if t.season == 1 else 0.12
+	var season_glow := 0.35 if t.season() == 1 else 0.12
 	var clear_sky: float = 1.0 - WeatherTable.data(system.current)[WeatherTable.WEIGHT]
 	var intensity := season_glow * darkness(since_dusk) * clear_sky * solar_cycle
 	system.put(&"airglow_intensity", intensity, 0.001)

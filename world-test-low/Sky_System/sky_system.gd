@@ -1,11 +1,10 @@
 class_name SkySystem
 extends Node
-## The conductor between TimeScript and DaySky / NightSky. Each time the clock moves, TimeScript calls
-## `step`, which runs everything in a fixed order:
-##   1. calendar (per day)    Earth's tilt and equation of time, shared by day and night
-##   2. weather  (per stop)   current / upcoming weather, rolled fresh from the date
-##   3. day / night (per minute) DaySky moves the sun, NightSky the moon and airglow
-##   4. palette  (per minute) the owning side's colours, blended across the stop
+## The conductor between TimeScript and DaySky / NightSky. TimeScript calls it only when needed:
+##   on_day    (each new day)     Earth's tilt and equation of time, shared by day and night
+##   on_stop   (every 3 hours)    current / upcoming weather
+##   on_minute (each game minute) DaySky moves the sun, NightSky the moon and airglow, and the
+##                                owning side's colours are blended across the stop
 ## Nothing here, in DaySky or in NightSky keeps its own clock or listens for events.
 
 ## Emitted when the weather changes, for gameplay code (rain particles, sound, ...).
@@ -47,6 +46,7 @@ var _lat_sin: float
 var _lat_cos: float
 var _north: float
 var _started := false
+var _retarget := true
 
 # Last values sent to the shader, so unchanged ones are skipped
 var _sent := {}
@@ -68,44 +68,26 @@ func _ready() -> void:
 	day.setup(self)
 	night.setup(self)
 
-func step(t: TimeScript, tiers: int) -> void:
-	var retarget := not _started
-	if tiers & TimeScript.Tier.DAY:
-		_calendar(t)
-		day.on_day(t)
-	if tiers & TimeScript.Tier.STOP:
-		_weather(t)
-		day.on_stop(t)
-		retarget = true
-	var day_now := day.owns(t.hours())
-	if day_now != is_day or not _started:
-		if day_now and _started:
-			night.released()
-		is_day = day_now
-		retarget = true
-	day.track(t)
-	night.track(t)
-	if is_night:
-		night.active(t)
-	_palette(t, retarget)
-	_started = true
-
-# --- 1. Calendar: Earth's tilt and the equation of time only move once a day ---
-func _calendar(t: TimeScript) -> void:
+# --- Each new day: Earth's tilt and the equation of time only move once a day ---
+func on_day(t: TimeScript) -> void:
 	var orbit := TAU / t.year_length()
-	var d := float(t.day_of_year)
+	var d := float(t.day_of_year())
 	tilt = 0.4092797 * sin(orbit * (d - 192.0))
 	tilt_bias = tilt_bias_for(tilt)
 	tilt_tan = tan(tilt)
 	var eq := orbit * (d + 173.0)
 	equation_of_time = (9.87 * sin(2.0 * eq) - 7.53 * cos(eq) - 1.5 * sin(eq)) * 0.000694444444
+	day.on_day(t)
 
-# --- 2. Weather: rolled from the date, so the stop after midnight sees tomorrow's season ---
-func _weather(t: TimeScript) -> void:
-	var start := t.stop * TimeScript.STOP_HOURS
-	var next := t.next_stop_date()
-	var new_current := WeatherTable.roll(t.season, t.day_of_year, t.year, start, chance_override)
-	var new_upcoming := WeatherTable.roll(next[0], next[1], next[2], fmod(start + TimeScript.STOP_HOURS, 24.0), chance_override)
+# --- Every 3 hours: weather is rolled fresh from the date, so midnight always sees the new season ---
+func on_stop(t: TimeScript) -> void:
+	var start := t.stop() * TimeScript.STOP_HOURS
+	var next_hour := (start + TimeScript.STOP_HOURS) % 24
+	# The stop after 21:00 is tomorrow. Only the forecast's blend target uses this; the stop itself
+	# is always rolled from its real date when it arrives.
+	var next_day := t.day_of_year() + (1 if next_hour == 0 else 0)
+	var new_current := WeatherTable.roll(t.season(), t.day_of_year(), t.year, start, chance_override)
+	var new_upcoming := WeatherTable.roll(t.season(), next_day, t.year, next_hour, chance_override)
 	var changed := new_current != current or new_upcoming != upcoming or not _started
 	current = new_current
 	upcoming = new_upcoming
@@ -113,13 +95,31 @@ func _weather(t: TimeScript) -> void:
 		weather_label.text = "%s => %s" % [WeatherTable.TYPES[current][WeatherTable.NAME], WeatherTable.TYPES[upcoming][WeatherTable.NAME]]
 	if changed:
 		weather_changed.emit(current, upcoming)
+	day.on_stop(t)
+	_retarget = true
 
-# --- 4. Palette: one from -> to blend per stop, picked up from whatever is on screen ---
+# --- Every game minute: move the sun and moon, hand the sky between day and night, blend colours ---
+func on_minute(t: TimeScript) -> void:
+	var day_now := day.owns(t.hours())
+	if day_now != is_day or not _started:
+		if day_now and _started:
+			night.released()
+		is_day = day_now
+		_retarget = true
+	day.track(t)
+	night.track(t)
+	if is_night:
+		night.active(t)
+	_palette(t, _retarget)
+	_retarget = false
+	_started = true
+
+# Palette: one from -> to blend per stop, picked up from whatever is on screen ---
 func _palette(t: TimeScript, retarget: bool) -> void:
 	var h := t.hours()
 	if retarget:
 		_start_hour = h
-		_end_hour = (t.stop + 1) * TimeScript.STOP_HOURS
+		_end_hour = (t.stop() + 1) * TimeScript.STOP_HOURS
 		_from = _shown if _started else _target(_start_hour, current)
 		_to = _target(_end_hour, upcoming)
 		put(&"from_top", _from[0])
