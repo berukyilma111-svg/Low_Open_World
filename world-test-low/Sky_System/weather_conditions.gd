@@ -53,35 +53,21 @@ const WIND_STRENGTH_RANGE = {
 }
 # Most the wind direction can swing when the weather changes (radians; PI / 4 = 45 degrees)
 const WIND_DIRECTION_SWING := PI / 4.0
-# How far gusts push the strength above and below the period's value (0.35 = up to 35% either way)
-const WIND_GUST_SHARE := 0.35
-# How far the direction wanders either side of the period's direction (radians; 0.35 = ~20 degrees)
-const WIND_DIRECTION_WANDER := 0.35
 
 @export var sky: SkyScript
 @export var heatwave_strength: float = 0.16  # heatwave_intensity sent during a heat wave
 
-## The world's wind right now, for scripts to read; shaders read the wind_strength and
-## wind_direction globals. Both keep gusting and wandering around the values picked for the
-## current weather period, so the wind never holds still.
-var wind_strength: float:
-	get: return clampf(_period_wind_strength * (1.0 + WIND_GUST_SHARE * _gust(0.9, 2.3, 0)), 0.0, 1.0)
-var wind_direction: Vector2:  # horizontal and normalised: x = world X, y = world Z
-	get: return _period_wind_direction.rotated(WIND_DIRECTION_WANDER * _gust(0.25, 0.6, 2))
-var _period_wind_strength := 0.0
-var _period_wind_direction := Vector2.RIGHT
-var _gust_offsets: Array[float] = [0.0, 0.0, 0.0, 0.0]  # re-rolled each period so no two gust patterns match
+## The world's wind for this weather period, for scripts to read; shaders read the wind_strength
+## and wind_direction globals. These hold steady for the period: each shader that uses the wind
+## (grass, trees, flags) adds its own gusts on top with TIME, so nothing here updates every frame.
+var wind_strength := 0.0
+var wind_direction := Vector2.RIGHT  # horizontal and normalised: x = world X, y = world Z
 var _last_sent_amounts := {}
 var _random := RandomNumberGenerator.new()
 
 func _ready() -> void:
 	_random.randomize()
-	_period_wind_direction = Vector2.RIGHT.rotated(_random.randf() * TAU)
-
-# The gusting wind is sent to the shader globals every frame so grass and trees sway smoothly.
-func _process(_delta: float) -> void:
-	RenderingServer.global_shader_parameter_set(&"wind_strength", wind_strength)
-	RenderingServer.global_shader_parameter_set(&"wind_direction", wind_direction)
+	wind_direction = Vector2.RIGHT.rotated(_random.randf() * TAU)
 
 ## Called by Weather Data at the start of each 3-hour weather period.
 func apply_weather(current_weather: int, next_weather: int) -> void:
@@ -96,17 +82,11 @@ func apply_weather(current_weather: int, next_weather: int) -> void:
 	_set_wind(current_weather)
 	sky.set_weather_profiles(current_profile, WEATHER_PROFILES[next_weather])
 
-# Picks the period's wind strength from the weather's range and swings its direction a little
-# from where it was. The wind then gusts and wanders around these values (see wind_strength).
+# Picks a wind strength from the weather's range and swings the direction a little from where
+# it was, then publishes both as shader globals (declared in project.godot).
 func _set_wind(weather: int) -> void:
 	var strength_range: Vector2 = WIND_STRENGTH_RANGE[weather]
-	_period_wind_strength = _random.randf_range(strength_range.x, strength_range.y)
-	_period_wind_direction = _period_wind_direction.rotated(_random.randf_range(-WIND_DIRECTION_SWING, WIND_DIRECTION_SWING))
-	for index in _gust_offsets.size():
-		_gust_offsets[index] = _random.randf() * TAU
-
-# A smooth, irregular wave between -1 and 1: two waves at different speeds added together, so
-# the pattern doesn't visibly repeat. Runs on real seconds, so gusts look the same at any time speed.
-func _gust(slow_speed: float, fast_speed: float, first_offset: int) -> float:
-	var seconds := Time.get_ticks_msec() / 1000.0
-	return 0.6 * sin(seconds * slow_speed + _gust_offsets[first_offset]) + 0.4 * sin(seconds * fast_speed + _gust_offsets[first_offset + 1])
+	wind_strength = _random.randf_range(strength_range.x, strength_range.y)
+	wind_direction = wind_direction.rotated(_random.randf_range(-WIND_DIRECTION_SWING, WIND_DIRECTION_SWING))
+	RenderingServer.global_shader_parameter_set(&"wind_strength", wind_strength)
+	RenderingServer.global_shader_parameter_set(&"wind_direction", wind_direction)
