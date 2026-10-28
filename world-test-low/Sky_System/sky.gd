@@ -1,8 +1,8 @@
 class_name SkyScript
 extends Node
 ## Step 4 of 4. Where everything above plays out: moves the Sun and Moon nodes and feeds the sky
-## shader. Sky colours come from one 24-hour table at 3-hour points (like GTA SA's time cycle),
-## tinted by the weather and blended across each 3-hour stop. Unchanged values are never re-sent.
+## shader from one 24-hour colour table (like GTA SA's time cycle), tinted by the weather and
+## blended across each 3-hour stop. Values that haven't changed are never re-sent.
 
 # Sky at 0, 3, 6, 9, 12, 15, 18, 21 h, and how dark each point is (0 = day, 1 = full night)
 const TOP: Array[Color] = [Color(0.065, 0.058, 0.227), Color(0.0, 0.14, 0.25), Color(0.86, 0.638, 0.43), Color(0.022, 0.368, 0.609), Color(0.335, 0.68, 0.99), Color(0.18, 0.52, 0.8), Color(0.93, 0.52, 0.441), Color(0.06, 0.052, 0.223)]
@@ -12,14 +12,10 @@ const DARKNESS: Array[float] = [1.0, 1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 1.0]
 @export var sun: DirectionalLight3D
 @export var moon: Node3D
 @export var world_env: WorldEnvironment
-## Distinct sky blend values per 3-hour stop. Each change re-renders the sky.
-@export_range(16, 1024) var blend_steps: int = 128
-## How much cloud or dust cuts sunlight.
-@export_range(0.0, 1.0) var weather_dimming: float = 0.5
+@export_range(16, 1024) var blend_steps: int = 128  # sky blend values per stop; each one re-renders the sky
+@export_range(0.0, 1.0) var weather_dimming: float = 0.5  # how much cloud or dust cuts sunlight
 @export var moon_base_angular_size: float = 0.009
 
-## Shader and light writes actually sent, for profiling.
-var writes := 0
 var _shader: ShaderMaterial
 var _sent := {}
 var _now: Array
@@ -27,10 +23,8 @@ var _next: Array
 var _from: Array
 var _to: Array
 var _shown: Array
-var _start_hour: float
-var _end_hour: float
+var _hours := Vector2.ZERO  # start and end hour of the current blend
 var _last_step := -1
-var _retarget := true
 
 func _ready() -> void:
 	_shader = world_env.environment.sky.sky_material as ShaderMaterial
@@ -39,7 +33,7 @@ func _ready() -> void:
 func on_weather(now: Array, next: Array) -> void:
 	_now = now
 	_next = next
-	_retarget = true
+	_last_step = -2  # retarget on the next minute
 
 func on_minute(c: Celestial, t: TimeScript) -> void:
 	var h := fposmod(c.days, 1.0) * 24.0
@@ -50,11 +44,7 @@ func on_minute(c: Celestial, t: TimeScript) -> void:
 	if sun and (s.x < 0.1 or sun.visible):
 		sun.rotation = Vector3(s.x, s.y, sun.rotation.z)
 		sun.visible = s.x < 0.1
-		var dim := 1.0 - weather_dimming * maxf(_now[WeatherConditions.CLOUD], _now[WeatherConditions.DUST])
-		var energy := lerpf(0.01, 0.8 * dim, light)
-		if absf(energy - sun.light_energy) > 0.002:
-			sun.light_energy = energy
-			writes += 1
+		sun.light_energy = lerpf(0.01, 0.8 * (1.0 - weather_dimming * maxf(_now[WeatherConditions.CLOUD], _now[WeatherConditions.DUST])), light)
 	var m := c.moon_rotation()
 	if moon:
 		moon.rotation = Vector3(m.x, m.y, 0.0)
@@ -71,24 +61,20 @@ func on_minute(c: Celestial, t: TimeScript) -> void:
 		glow = (0.35 if t.season == Celestial.Season.BEGA else 0.12) * _at(DARKNESS, h) * (1.0 - _now[WeatherConditions.WEIGHT]) * (0.75 + 0.25 * sin(t.year * 0.57))
 		_put(&"star_rotation", c.star_rotation(), 0.005)
 	_put(&"airglow_intensity", glow, 0.001)
-	if glow > 0.0:
-		# 0 at dusk, PI at midnight, TAU at dawn, so the airglow animation never snaps at midnight.
+	if glow > 0.0:  # 0 at dusk, PI at midnight, TAU at dawn, so it never snaps at midnight
 		_put(&"elapsed_time", fposmod(h - 18.0, 24.0) / 12.0 * TAU, 0.005)
-	_blend(h, t)
+	_blend(h, t.hour - t.hour % TimeScript.STOP_HOURS + TimeScript.STOP_HOURS)
 
 # One from -> to colour blend per stop, starting from whatever is on screen so nothing snaps.
-func _blend(h: float, t: TimeScript) -> void:
-	if _retarget:
-		_retarget = false
-		_start_hour = h
-		_end_hour = t.hour - t.hour % TimeScript.STOP_HOURS + TimeScript.STOP_HOURS
+func _blend(h: float, end_hour: float) -> void:
+	if _last_step == -2:
+		_hours = Vector2(h, end_hour)
 		_from = _shown if not _shown.is_empty() else _colours(h, _now)
-		_to = _colours(_end_hour, _next)
+		_to = _colours(end_hour, _next)
 		for i in 2:
 			_put([&"from_top", &"from_horizon"][i], _from[i])
 			_put([&"to_top", &"to_horizon"][i], _to[i])
-		_last_step = -1
-	var step := int(clampf((h - _start_hour) / maxf(_end_hour - _start_hour, 0.001), 0.0, 1.0) * blend_steps)
+	var step := int(clampf((h - _hours.x) / maxf(_hours.y - _hours.x, 0.001), 0.0, 1.0) * blend_steps)
 	if step != _last_step:
 		_last_step = step
 		var b := float(step) / blend_steps
@@ -103,7 +89,7 @@ func _colours(hour: float, w: Array) -> Array:
 	var horizon: Color = _at(HORIZON, hour).darkened(dark * 0.68).lerp(w[WeatherConditions.HORIZON].darkened(dark * 0.78), weight)
 	return [top, horizon]
 
-# Blends between the two 3-hour table points either side of `hour`, wrapping past midnight.
+# Blends the two 3-hour table points either side of `hour`, wrapping past midnight.
 static func _at(table: Array, hour: float):
 	var i := int(fposmod(hour, 24.0) / 3.0) % 8
 	return lerp(table[i], table[(i + 1) % 8], fposmod(hour, 3.0) / 3.0)
@@ -114,4 +100,3 @@ func _put(param: StringName, value, eps: float = 0.0) -> void:
 		return
 	_sent[param] = value
 	_shader.set_shader_parameter(param, value)
-	writes += 1
