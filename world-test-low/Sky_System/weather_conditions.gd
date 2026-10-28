@@ -10,7 +10,7 @@ enum { SKY_TOP_TINT, SKY_HORIZON_TINT, TINT_STRENGTH, CLOUD_AMOUNT, RAIN_AMOUNT,
 
 # [sky top tint, sky horizon tint, tint strength, cloud, rain, dust, heat, sun strength, fog].
 # Clear has no tint: a clear sky is just the time-of-day colours in sky.gd. Sun strength is the
-# share of full sunlight that gets through; fog is the share of Sky's thickest fog.
+# share of full sunlight that gets through; fog is how far Sky's fog wall closes in (1 = closest).
 const WEATHER_PROFILES = {
 	WeatherData.Type.CLEAR: [Color(0.44, 0.729, 1.0), Color(0.89, 0.646, 0.347), 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
 	WeatherData.Type.CLOUDY: [Color(0.357, 0.404, 0.451), Color(0.498, 0.549, 0.6), 0.6, 0.6, 0.0, 0.0, 0.0, 0.7, 0.0],

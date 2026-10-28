@@ -1,8 +1,8 @@
 class_name SkyScript
 extends Node
 ## Step 4 of 4. Where everything above plays out: moves the Sun and Moon nodes, feeds the sky
-## shader and sets the fog. The sky's look (colours from one 24-hour table like GTA SA's time
-## cycle, plus the weather's sunlight and fog) is blended across each 3-hour weather period.
+## shader and sets the distance fog. The sky's look (colours from one 24-hour table like GTA SA's
+## time cycle, plus the weather's sunlight and fog) is blended across each 3-hour weather period.
 ## The fog takes the horizon colour, so it matches the sky. Unchanged values are never re-sent.
 
 # Sky colours at 0, 3, 6, 9, 12, 15, 18 and 21 h, and how dark each point is (0 = day, 1 = night)
@@ -17,7 +17,8 @@ enum { LOOK_TOP_COLOUR, LOOK_HORIZON_COLOUR, LOOK_SUN_STRENGTH, LOOK_FOG_AMOUNT 
 @export var moon: Node3D
 @export var world_env: WorldEnvironment
 @export_range(16, 1024) var blend_steps: int = 128  # sky colour updates per weather period; each one re-renders the sky
-@export var thickest_fog_density: float = 0.05  # Environment fog density at a weather's fog amount of 1
+@export var draw_distance: float = 400.0  # where the fog wall is solid on a clear day; match Camera3D Far to it
+@export_range(0.0, 1.0) var fog_begin_share: float = 0.6  # the fog starts at this share of the way to the wall
 @export var moon_base_angular_size: float = 0.05  # radius in radians (the real moon is ~0.0045)
 
 @onready var _sky_shader := world_env.environment.sky.sky_material as ShaderMaterial
@@ -95,12 +96,13 @@ func _blend_sky_look(hour: float, time: TimeScript) -> void:
 		_send_to_shader(&"sky_blend", blend)
 		_update_fog()
 
-# Built-in Environment fog: no extra shader or texture. It takes the sky's horizon colour, and
-# hides as much of the sky as the weather's fog amount, so a light haze leaves the sky visible.
+# GTA SA-style distance fog: a wall that fades the world out between the fog start and the wall,
+# in the sky's horizon colour so the edge of the world melts into the sky. The weather's fog
+# amount pulls the wall closer (1 = a fifth of the draw distance). The Environment's fog mode,
+# curve and sky affect are fixed in the editor; the sky itself is never fogged.
 func _update_fog() -> void:
-	world_env.environment.fog_enabled = _look_on_screen[LOOK_FOG_AMOUNT] > 0.01
-	world_env.environment.fog_density = _look_on_screen[LOOK_FOG_AMOUNT] * thickest_fog_density
-	world_env.environment.fog_sky_affect = _look_on_screen[LOOK_FOG_AMOUNT]
+	world_env.environment.fog_depth_end = lerpf(draw_distance, draw_distance * 0.2, _look_on_screen[LOOK_FOG_AMOUNT])
+	world_env.environment.fog_depth_begin = world_env.environment.fog_depth_end * fog_begin_share
 	world_env.environment.fog_light_color = _look_on_screen[LOOK_HORIZON_COLOUR]
 
 # The sky's look at `hour`: colours darkened for night and tinted by the weather, plus the

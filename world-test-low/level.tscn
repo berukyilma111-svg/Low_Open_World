@@ -43,11 +43,18 @@ background_mode = 2
 sky = SubResource("Sky_1ainy")
 ambient_light_source = 3
 tonemap_mode = 2
+fog_enabled = true
+fog_mode = 1
+fog_sky_affect = 0.0
+fog_depth_curve = 1.0
+fog_depth_begin = 240.0
+fog_depth_end = 400.0
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_oi3di"]
 transparency = 1
 shading_mode = 0
 billboard_mode = 2
+disable_fog = true
 
 [sub_resource type="QuadMesh" id="QuadMesh_0b4ue"]
 
