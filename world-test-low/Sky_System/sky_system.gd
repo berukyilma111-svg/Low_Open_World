@@ -37,7 +37,7 @@ var is_night: bool:
 var writes := 0
 var sky: ShaderMaterial
 
-# Calendar, shared by both layers (updated once per day)
+# Calendar, shared by DaySky and NightSky (updated once per day)
 var tilt: float
 var tilt_bias: Vector2
 var tilt_tan: float
