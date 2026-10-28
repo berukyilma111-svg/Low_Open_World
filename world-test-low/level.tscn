@@ -4,6 +4,8 @@
 [ext_resource type="PackedScene" uid="uid://ceahmw3rp5uos" path="res://FPS_Controller/player.tscn" id="1_u52ul"]
 [ext_resource type="Script" uid="uid://2bpkd4o4u4lu" path="res://Sky_System/time.gd" id="3_time"]
 [ext_resource type="Script" uid="uid://dglp85w5tmwvs" path="res://Sky_System/sky_system.gd" id="5_sky"]
+[ext_resource type="Script" path="res://Sky_System/day_sky.gd" id="6_day"]
+[ext_resource type="Script" path="res://Sky_System/night_sky.gd" id="7_night"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_0b4ue"]
 shader = ExtResource("1_0b4ue")
@@ -82,12 +84,20 @@ month = 11
 day = 23
 hour = 6
 
-[node name="Sky" type="Node" parent="World" unique_id=1496512527 node_paths=PackedStringArray("sun", "moon", "world_env", "weather_label")]
+[node name="Sky" type="Node" parent="World" unique_id=1496512527 node_paths=PackedStringArray("day", "night", "world_env", "weather_label")]
 script = ExtResource("5_sky")
-sun = NodePath("../Sun")
-moon = NodePath("../Moon")
+day = NodePath("Day")
+night = NodePath("Night")
 world_env = NodePath("../../Enviroment/WorldEnvironment")
 weather_label = NodePath("../../Enviroment/WeatherLabel")
+
+[node name="Day" type="Node" parent="World/Sky" unique_id=1023555828 node_paths=PackedStringArray("sun")]
+script = ExtResource("6_day")
+sun = NodePath("../../Sun")
+
+[node name="Night" type="Node" parent="World/Sky" unique_id=774612203 node_paths=PackedStringArray("moon")]
+script = ExtResource("7_night")
+moon = NodePath("../../Moon")
 moon_base_angular_size = 0.05
 
 [node name="Sun" type="DirectionalLight3D" parent="World" unique_id=927699974]
