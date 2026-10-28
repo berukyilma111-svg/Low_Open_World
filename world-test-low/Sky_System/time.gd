@@ -8,6 +8,7 @@ extends Node
 const WEATHER_PERIOD_HOURS := 3
 const MONTH_NAMES = ["Month_1", "Month_2", "Month_3", "Month_4", "Month_5", "Month_6", "Month_7", "Month_8", "Month_9", "Month_10", "Month_11", "Month_12", "Month_13"]
 const SEASON_NAMES = ["(MSKRM) / Harvest", "(BGA) / Dry Season", "(BLG) / Short Rains", "(KRMT) / Monsoon"]
+const COMPASS_POINTS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
 
 @export var weather: WeatherData
 @export var sky: SkyScript
@@ -73,3 +74,10 @@ func _show_debug_text() -> void:
 	if debug_label:
 		var clock_hour := 12 if hour % 12 == 0 else hour % 12
 		debug_label.text = "Year %d | %s %d | [%s] | %d:%02d %s" % [year, MONTH_NAMES[month - 1], day, SEASON_NAMES[season], clock_hour, minute, "PM" if hour >= 12 else "AM"]
+		var wind := weather.conditions
+		debug_label.text += " | Wind blowing %s at %d%%" % [_compass_point(wind.wind_direction), roundi(wind.wind_strength * 100.0)]
+
+# The compass point a horizontal direction heads toward, with north as world -Z and east as +X.
+static func _compass_point(direction: Vector2) -> String:
+	var heading := atan2(direction.x, -direction.y)  # 0 = north, turning clockwise
+	return COMPASS_POINTS[posmod(roundi(heading / (TAU / 8.0)), 8)]
