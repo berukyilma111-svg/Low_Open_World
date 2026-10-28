@@ -19,6 +19,14 @@ uniform float sun_corona_size : hint_range(0.01, 0.5, 0.01) = 0.09;
 uniform float sun_corona_intensity : hint_range(0.0, 2.0, 0.01) = 0.6;
 uniform float sun_intensity = 0.0;
 
+group_uniforms sunrise_sunset_glow;
+// Over-exposed glow along the horizon toward a low sun. sun_strength is the weather's share of
+// sunlight (sent by sky.gd), so overcast or foggy weather mutes the glow.
+uniform vec3 horizon_glow_color : source_color = vec3(1.0, 0.62, 0.32);
+uniform float horizon_glow_intensity : hint_range(0.0, 3.0, 0.01) = 1.2;
+uniform float horizon_glow_spread : hint_range(1.0, 32.0, 0.5) = 4.0;
+uniform float sun_strength = 1.0;
+
 group_uniforms moon;
 uniform vec3 moon_direction = vec3(0.0, -1.0, 0.0);
 uniform vec3 moon_disc_color : source_color = vec3(0.85, 0.87, 0.92);
@@ -45,6 +53,18 @@ vec3 draw_sun(vec3 dir) {
 	float disc = 1.0 - smoothstep(sun_angular_size - sun_edge_softness, sun_angular_size, d);
 	float corona = pow(1.0 - d / sun_corona_size, 3.0) * sun_corona_intensity * clamp(LIGHT0_ENERGY, 0.0, 1.5);
 	return sun_disc_color * (disc + corona);
+}
+
+vec3 draw_horizon_glow(vec3 dir) {
+	if (!LIGHT0_ENABLED) return vec3(0.0);
+	vec3 sun_dir = LIGHT0_DIRECTION;
+	// Strongest with the sun on the horizon; gone once it is ~20 degrees up or ~6 degrees down.
+	float low_sun = smoothstep(-0.1, 0.0, sun_dir.y) * (1.0 - smoothstep(0.0, 0.35, sun_dir.y));
+	// Brightest on the sun's side of the sky, a faint band all the way round.
+	float facing = dot(dir.xz, sun_dir.xz) / max(length(dir.xz) * length(sun_dir.xz), 1e-4);
+	float toward_sun = 0.25 + pow(max(facing, 0.0), horizon_glow_spread);
+	float near_horizon = pow(1.0 - dir.y, 6.0);
+	return horizon_glow_color * low_sun * toward_sun * near_horizon * horizon_glow_intensity * sun_strength;
 }
 
 vec3 draw_moon(vec3 dir) {
@@ -84,7 +104,7 @@ void sky() {
 	if (dir.y < 0.0) {
 		col = mix(col, top, min(-dir.y * 2.0, 1.0));
 	} else if (!AT_CUBEMAP_PASS) {
-		col += draw_sun(dir) + draw_moon(dir);
+		col += draw_sun(dir) + draw_moon(dir) + draw_horizon_glow(dir);
 		if (airglow_intensity > 0.0) col += draw_airglow(dir);
 		col = min(col, vec3(1.0));
 	}

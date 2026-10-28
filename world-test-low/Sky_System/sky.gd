@@ -57,10 +57,9 @@ func update_sky(celestial: Celestial, time: TimeScript) -> void:
 		_send_to_shader(&"elapsed_time", fposmod(hour - 18.0, 24.0) / 12.0 * TAU, 0.005)
 
 func _update_sun(sun_rotation: Vector2, sunlight: float) -> void:
-	var sun_is_up := sun_rotation.x < 0.1
-	if sun_is_up or sun.visible:  # once down, the light is switched off and left alone
+	if sun_rotation.x < 0.1 or sun.visible:  # once down, the light is switched off and left alone
 		sun.rotation = Vector3(sun_rotation.x, sun_rotation.y, sun.rotation.z)
-		sun.visible = sun_is_up
+		sun.visible = sun_rotation.x < 0.1  # still up
 		sun.light_energy = lerpf(0.01, 0.8 * _look_on_screen[LOOK_SUN_STRENGTH], sunlight)
 
 func _update_moon(celestial: Celestial) -> void:
@@ -94,6 +93,7 @@ func _blend_sky_look(hour: float, time: TimeScript) -> void:
 		# Each field of the look (colours, sun strength, fog) moves the same share of the way.
 		_look_on_screen = range(_blend_start_look.size()).map(func(field): return lerp(_blend_start_look[field], _blend_end_look[field], blend))
 		_send_to_shader(&"sky_blend", blend)
+		_send_to_shader(&"sun_strength", _look_on_screen[LOOK_SUN_STRENGTH], 0.01)  # mutes the sunrise/sunset glow
 		_update_fog()
 
 # GTA SA-style distance fog: a wall that fades the world out between the fog start and the wall,
