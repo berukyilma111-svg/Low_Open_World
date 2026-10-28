@@ -2,90 +2,98 @@ class_name Celestial
 extends Node
 ## Step 1 of 4. Where the sun, moon and stars are, and nothing else: moves no nodes, touches no
 ## shaders. Each frame it turns the Earth and carries it along its orbit, then hands itself to
-## Time, which reads the clock off the sun. Everything else is worked out from `days` when asked.
+## Time, which reads the clock off the sun. Everything else is worked out from `elapsed_days`.
 
-const ORBIT_DAYS := 365.25          # one orbit; the extra quarter day gives Pagume a 6th day every 4th year
-const AXIAL_TILT := 0.4090928       # 23.44 degrees
-const NEW_YEAR_LONGITUDE := 2.9496  # the sun's place on its yearly path on Meskerem 1 (~11 September)
-const SYNODIC_MONTH := 29.53059     # new moon to new moon
-const ANOMALISTIC_MONTH := 27.55    # the moon's nearest point to the next one (its size swing)
-const SIDEREAL_TURNS := (ORBIT_DAYS + 1.0) / ORBIT_DAYS  # stars turn once more a year than the sun
+const DAYS_PER_ORBIT := 365.25            # the extra quarter day gives Pagume a 6th day every 4th year
+const EARTH_AXIAL_TILT := 0.4090928       # 23.44 degrees, in radians
+const SUN_ORBIT_ANGLE_AT_NEW_YEAR := 2.9496  # where the sun is on its yearly path on Meskerem 1 (~11 September)
+const DAYS_PER_MOON_PHASE_CYCLE := 29.53059  # new moon to new moon
+const DAYS_PER_MOON_DISTANCE_CYCLE := 27.55  # closest to the Earth, to closest again
+const STAR_TURNS_PER_DAY := (DAYS_PER_ORBIT + 1.0) / DAYS_PER_ORBIT  # one extra turn a year
 
 enum Season { HARVEST, BEGA, BELG, KIREMT }
-# Ethiopia's seasons follow the rain belt, which trails the sun north and south. The sun's
-# declination (radians) where each season starts, while it heads north and while it heads south.
-const NORTH_BELG := -0.0936         # -5.4 deg: short rains as the sun climbs back north
-const NORTH_KIREMT := 0.3945        # 22.6 deg: main rains near the sun's northern turn
-const SOUTH_HARVEST := 0.0759       # 4.35 deg: rains end as the sun heads south
-const SOUTH_BEGA := -0.3992         # -22.9 deg: dry season around the sun's southern turn
+# Ethiopia's seasons follow the rain belt, which trails the sun north and south across the year.
+# Each season starts when the sun reaches a set declination (how far north of the equator it is,
+# in radians). The north-bound and south-bound boundaries differ because the rains lag the sun.
+const BELG_STARTS_HEADING_NORTH := -0.0936    # -5.4 degrees
+const KIREMT_STARTS_HEADING_NORTH := 0.3945   # 22.6 degrees
+const HARVEST_STARTS_HEADING_SOUTH := 0.0759  # 4.35 degrees
+const BEGA_STARTS_HEADING_SOUTH := -0.3992    # -22.9 degrees
 
 @export var time: TimeScript
-## Game minutes per real second.
-@export var minute_per_second: float = 60.0
+@export var minute_per_second: float = 60.0  # game minutes per real second
 @export var latitude: float = 10.7058
 @export_range(0, 360) var north_offset_degrees: float = 0.0
 
-## Earth turns since the calendar's epoch: the whole part counts days, the fraction is where the
-## sun is in today's sky (0 = midnight, 0.5 = noon).
-var days: float
-var _lat_sin: float
-var _lat_cos: float
-var _north: float
+## Days since the calendar began. The whole part counts days; the fraction is where the sun is
+## in today's sky (0 = midnight, 0.5 = noon).
+var elapsed_days: float
+var _latitude_sin: float
+var _latitude_cos: float
+var _north_offset: float
 
 func _ready() -> void:
-	_lat_sin = sin(deg_to_rad(latitude))
-	_lat_cos = cos(deg_to_rad(latitude))
-	_north = deg_to_rad(north_offset_degrees)
-	days = time.start_days()
+	_latitude_sin = sin(deg_to_rad(latitude))
+	_latitude_cos = cos(deg_to_rad(latitude))
+	_north_offset = deg_to_rad(north_offset_degrees)
+	elapsed_days = time.start_date_as_elapsed_days()
 
 func _process(delta: float) -> void:
-	days += delta * minute_per_second / 1440.0
-	time.advance(self)
+	elapsed_days += delta * minute_per_second / 1440.0
+	time.update_from_celestial(self)
 
-func declination() -> float:
-	return asin(sin(AXIAL_TILT) * sin(_longitude()))
+## How far north of the equator the sun is (radians).
+func sun_declination() -> float:
+	return asin(sin(EARTH_AXIAL_TILT) * sin(_sun_orbit_angle()))
 
-func season() -> int:
-	var dec := declination()
-	if cos(_longitude()) >= 0.0:  # sun heading north
-		return Season.BEGA if dec < NORTH_BELG else Season.BELG if dec < NORTH_KIREMT else Season.KIREMT
-	return Season.KIREMT if dec > SOUTH_HARVEST else Season.HARVEST if dec > SOUTH_BEGA else Season.BEGA
+func current_season() -> int:
+	var declination := sun_declination()
+	var sun_heading_north := cos(_sun_orbit_angle()) >= 0.0
+	if sun_heading_north:
+		if declination < BELG_STARTS_HEADING_NORTH:
+			return Season.BEGA
+		return Season.BELG if declination < KIREMT_STARTS_HEADING_NORTH else Season.KIREMT
+	if declination > HARVEST_STARTS_HEADING_SOUTH:
+		return Season.KIREMT
+	return Season.HARVEST if declination > BEGA_STARTS_HEADING_SOUTH else Season.BEGA
 
-## Height of the sun: 1 straight overhead, 0 on the horizon, negative below it.
+## How high the sun is: 1 straight overhead, 0 on the horizon, negative below it.
 func sun_height() -> float:
-	return _height(declination(), _hour_angle(0.0))
+	return _height_above_horizon(sun_declination(), _angle_from_noon(0.0))
 
-## Sun direction as a node rotation (x = -altitude, y = azimuth).
-func sun_rotation() -> Vector2:
-	return _rotation(declination(), _hour_angle(0.0))
+## The sun's direction as a node rotation (x = tilt down from the horizon, y = compass heading).
+func sun_node_rotation() -> Vector2:
+	return _node_rotation(sun_declination(), _angle_from_noon(0.0))
 
 ## 0 = new moon, 0.5 = full moon.
 func moon_phase() -> float:
-	return fmod(days, SYNODIC_MONTH) / SYNODIC_MONTH
+	return fmod(elapsed_days, DAYS_PER_MOON_PHASE_CYCLE) / DAYS_PER_MOON_PHASE_CYCLE
 
-## Moon direction as a node rotation. It rides with the sun at new moon and opposite it at full
-## moon, its orbit tipped 5 degrees.
-func moon_rotation() -> Vector2:
-	var dec := declination() * cos(moon_phase() * TAU) + 0.0897 * sin(days * 0.22997)
-	return _rotation(dec, _hour_angle(-moon_phase()))
+## The moon's direction as a node rotation. It rides with the sun at new moon and opposite it at
+## full moon, with its orbit tipped 5 degrees.
+func moon_node_rotation() -> Vector2:
+	var declination := sun_declination() * cos(moon_phase() * TAU) + 0.0897 * sin(elapsed_days * 0.22997)
+	return _node_rotation(declination, _angle_from_noon(-moon_phase()))
 
-## How big the moon looks against its average size (0.93 far away to 1.07 close).
-func moon_size() -> float:
-	return lerpf(0.93, 1.07, 0.5 + 0.5 * cos(TAU * fmod(days, ANOMALISTIC_MONTH) / ANOMALISTIC_MONTH))
+## How big the moon looks compared with its average size (0.93 far away, 1.07 close).
+func moon_size_multiplier() -> float:
+	var distance_cycle := fmod(elapsed_days, DAYS_PER_MOON_DISTANCE_CYCLE) / DAYS_PER_MOON_DISTANCE_CYCLE
+	return lerpf(0.93, 1.07, 0.5 + 0.5 * cos(TAU * distance_cycle))
 
 ## How far the stars have turned (radians). Plumbing for a future star field.
-func star_rotation() -> float:
-	return fposmod(days * SIDEREAL_TURNS, 1.0) * TAU
+func star_field_rotation() -> float:
+	return fposmod(elapsed_days * STAR_TURNS_PER_DAY, 1.0) * TAU
 
-func _longitude() -> float:
-	return NEW_YEAR_LONGITUDE + fmod(days, ORBIT_DAYS) / ORBIT_DAYS * TAU
+func _sun_orbit_angle() -> float:
+	return SUN_ORBIT_ANGLE_AT_NEW_YEAR + fmod(elapsed_days, DAYS_PER_ORBIT) / DAYS_PER_ORBIT * TAU
 
-func _hour_angle(offset: float) -> float:
-	return (fposmod(days, 1.0) + offset - 0.5) * TAU
+# How far a body has turned past its highest point today (radians; 0 = noon for the sun).
+func _angle_from_noon(day_offset: float) -> float:
+	return (fposmod(elapsed_days, 1.0) + day_offset - 0.5) * TAU
 
-func _height(dec: float, hour_angle: float) -> float:
-	return _lat_sin * sin(dec) + _lat_cos * cos(dec) * cos(hour_angle)
+func _height_above_horizon(declination: float, angle_from_noon: float) -> float:
+	return _latitude_sin * sin(declination) + _latitude_cos * cos(declination) * cos(angle_from_noon)
 
-func _rotation(dec: float, hour_angle: float) -> Vector2:
-	var azimuth := atan2(sin(hour_angle), cos(hour_angle) * _lat_sin - tan(dec) * _lat_cos)
-	return Vector2(-asin(_height(dec, hour_angle)), azimuth + _north)
+func _node_rotation(declination: float, angle_from_noon: float) -> Vector2:
+	var heading := atan2(sin(angle_from_noon), cos(angle_from_noon) * _latitude_sin - tan(declination) * _latitude_cos)
+	return Vector2(-asin(_height_above_horizon(declination, angle_from_noon)), heading + _north_offset)
