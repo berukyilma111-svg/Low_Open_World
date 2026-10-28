@@ -34,6 +34,10 @@ uniform float airglow_band_height : hint_range(0.01, 1.0, 0.01) = 0.18;
 uniform float airglow_sharpness : hint_range(0.5, 8.0, 0.1) = 2.5;
 uniform float elapsed_time = 0.0;
 
+group_uniforms stars;
+// Plumbing for a future star field: how far the stars have turned (radians). Not drawn yet.
+uniform float star_rotation = 0.0;
+
 vec3 draw_sun(vec3 dir) {
 	if (!LIGHT0_ENABLED) return vec3(0.0);
 	float d = distance(dir, LIGHT0_DIRECTION);

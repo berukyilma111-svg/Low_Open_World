@@ -74,6 +74,18 @@ heatwave_intensity={
 "type": "float",
 "value": 0.0
 }
+cloud_amount={
+"type": "float",
+"value": 0.0
+}
+rain_amount={
+"type": "float",
+"value": 0.0
+}
+dust_amount={
+"type": "float",
+"value": 0.0
+}
 heatwave_frequency={
 "type": "float",
 "value": 30.0
