@@ -114,7 +114,7 @@ func on_minute(t: TimeScript) -> void:
 	_retarget = false
 	_started = true
 
-# Palette: one from -> to blend per stop, picked up from whatever is on screen ---
+# One from -> to colour blend per stop, picked up from whatever is on screen.
 func _palette(t: TimeScript, retarget: bool) -> void:
 	var h := t.hours()
 	if retarget:
