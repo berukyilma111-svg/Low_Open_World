@@ -84,7 +84,9 @@ vec3 draw_moon(vec3 dir) {
 void sky() {
 	vec3 dir = EYEDIR;
 	vec3 top = mix(from_top, to_top, sky_blend);
-	vec3 col = mix(top, mix(from_horizon, to_horizon, sky_blend), pow(1.0 - abs(dir.y), horizon_sharpness));
+	// abs(dir.y) rounded off at the horizon, so the gradient peaks softly instead of folding into a crease
+	float h = sqrt(dir.y * dir.y + 0.0025) - 0.05;
+	vec3 col = mix(top, mix(from_horizon, to_horizon, sky_blend), pow(1.0 - h, horizon_sharpness));
 	if (dir.y < 0.0) {
 		col = mix(col, top, min(-dir.y * 2.0, 1.0));
 	} else if (!AT_CUBEMAP_PASS) {
