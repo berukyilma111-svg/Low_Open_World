@@ -1,7 +1,7 @@
 shader_type sky;
 
-// Blind executor: draws whatever DayScript / NightScript hand it. They send a "from" and a "to"
-// sky plus how far along the blend is; nothing here knows the time, season or weather.
+// Blind executor: draws whatever SkyScript (sky.gd) hands it. It sends a "from" and a "to" sky
+// plus how far along the blend is; nothing here knows the time, season or weather.
 
 group_uniforms sky_state;
 uniform vec3 from_top : source_color = vec3(0.02, 0.11, 0.39);
