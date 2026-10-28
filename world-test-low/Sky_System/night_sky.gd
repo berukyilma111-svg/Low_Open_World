@@ -1,5 +1,5 @@
 class_name NightSky
-extends SkyLayer
+extends Node
 ## Owns the sky from sunset (18:00) to sunrise (6:30): the moon's path, phase and size over the
 ## month and year, airglow, and the night sky colours with the weather overlay applied.
 ## The moon keeps moving by day too (it can be up in daylight); only airglow needs the night.
@@ -15,12 +15,13 @@ const DARKNESS: Array[float] = [0.0, 1.0, 1.0, 1.0, 0.5]
 @export var moon: Node3D
 @export var moon_base_angular_size: float = 0.009
 
+var system: SkySystem
 var _moon_glow: float
 var _moon_shown := true
 
-func setup(s: SkySystem, w: SkyWriter) -> void:
-	super(s, w)
-	var corona = w.get_default(&"moon_corona_size")
+func setup(s: SkySystem) -> void:
+	system = s
+	var corona = s.sky.get_shader_parameter(&"moon_corona_size")
 	# Largest the moon and its glow can get, so "fully below the horizon" is never cut short.
 	_moon_glow = moon_base_angular_size * 1.07 * (corona if corona != null else 1.6)
 
@@ -46,9 +47,9 @@ func track(t: TimeScript) -> void:
 		return
 	_moon_shown = visible
 	var swing := lerpf(0.93, 1.07, 0.5 + 0.5 * cos(TAU * fmod(days, ANOMALISTIC_MONTH_DAYS) / ANOMALISTIC_MONTH_DAYS))
-	writer.put(&"moon_direction", dir, moon_base_angular_size * 0.02)
-	writer.put(&"moon_phase", phase, 0.0005)
-	writer.put(&"moon_angular_size", moon_base_angular_size * swing, moon_base_angular_size * 0.002)
+	system.put(&"moon_direction", dir, moon_base_angular_size * 0.02)
+	system.put(&"moon_phase", phase, 0.0005)
+	system.put(&"moon_angular_size", moon_base_angular_size * swing, moon_base_angular_size * 0.002)
 
 func target(hour: float, w: int) -> Array:
 	var since_dusk := fposmod(hour - DaySky.SUNSET, 24.0)
@@ -59,11 +60,13 @@ func target(hour: float, w: int) -> Array:
 	var horizon := SkySystem.sample(HORIZON, since_dusk).darkened(dark * 0.68).lerp(o[WeatherTable.HORIZON].darkened(dark * 0.78), weight)
 	return [top, horizon]
 
+## Every minute while night owns the sky.
 func active(t: TimeScript) -> void:
 	_update_airglow(t)
 
+## Once, when night hands the sky to day.
 func released() -> void:
-	writer.put(&"airglow_intensity", 0.0)
+	system.put(&"airglow_intensity", 0.0)
 
 func _update_airglow(t: TimeScript) -> void:
 	var since_dusk := fposmod(t.hours() - DaySky.SUNSET, 24.0)
@@ -71,11 +74,11 @@ func _update_airglow(t: TimeScript) -> void:
 	var season_glow := 0.35 if t.season == 1 else 0.12
 	var clear_sky: float = 1.0 - WeatherTable.data(system.current)[WeatherTable.WEIGHT]
 	var intensity := season_glow * darkness(since_dusk) * clear_sky * solar_cycle
-	writer.put(&"airglow_intensity", intensity, 0.001)
+	system.put(&"airglow_intensity", intensity, 0.001)
 	# The shader skips airglow at zero intensity, so its animation clock only matters while it shows.
-	if writer.sent(&"airglow_intensity", 0.0) > 0.0:
+	if system.sent(&"airglow_intensity", 0.0) > 0.0:
 		# Runs 0 at dusk through PI at midnight to TAU at dawn, so the airglow never snaps at midnight.
-		writer.put(&"elapsed_time", since_dusk / 12.0 * TAU, 0.005)
+		system.put(&"elapsed_time", since_dusk / 12.0 * TAU, 0.005)
 
 static func darkness(since_dusk: float) -> float:
 	var i := clampi(int(since_dusk / TimeScript.STOP_HOURS), 0, DARKNESS.size() - 2)

@@ -1,12 +1,12 @@
 class_name SkySystem
 extends Node
-## The conductor between TimeScript and the sky layers. Each time the clock moves, TimeScript calls
+## The conductor between TimeScript and DaySky / NightSky. Each time the clock moves, TimeScript calls
 ## `step`, which runs everything in a fixed order:
-##   1. calendar (per day)    Earth's tilt and equation of time, shared by both layers
+##   1. calendar (per day)    Earth's tilt and equation of time, shared by day and night
 ##   2. weather  (per stop)   current / upcoming weather, rolled fresh from the date
-##   3. layers   (per minute) DaySky and NightSky move the sun and moon
-##   4. palette  (per minute) the owning layer's colours, blended across the stop
-## Nothing here or in the layers keeps its own clock or listens for events.
+##   3. day / night (per minute) DaySky moves the sun, NightSky the moon and airglow
+##   4. palette  (per minute) the owning side's colours, blended across the stop
+## Nothing here, in DaySky or in NightSky keeps its own clock or listens for events.
 
 ## Emitted when the weather changes, for gameplay code (rain particles, sound, ...).
 signal weather_changed(current: int, upcoming: int)
@@ -29,13 +29,13 @@ signal weather_changed(current: int, upcoming: int)
 
 var current: int = WeatherTable.Type.CLEAR
 var upcoming: int = WeatherTable.Type.CLEAR
-## The layer that owns the sky colours right now.
-var owner_layer: SkyLayer
-var is_day: bool:
-	get: return owner_layer == day
+## True while DaySky owns the sky colours, false while NightSky does.
+var is_day := false
 var is_night: bool:
-	get: return owner_layer == night
-var writer: SkyWriter
+	get: return not is_day
+## Shader, light and global writes actually sent since start, for profiling.
+var writes := 0
+var sky: ShaderMaterial
 
 # Calendar, shared by both layers (updated once per day)
 var tilt: float
@@ -43,11 +43,13 @@ var tilt_bias: Vector2
 var tilt_tan: float
 var equation_of_time: float
 
-var _layers: Array[SkyLayer] = []
 var _lat_sin: float
 var _lat_cos: float
 var _north: float
 var _started := false
+
+# Last values sent to the shader, so unchanged ones are skipped
+var _sent := {}
 
 # Palette blend for the current stop
 var _from: Array = [Color.BLACK, Color.BLACK]
@@ -62,38 +64,31 @@ func _ready() -> void:
 	_lat_sin = sin(lat)
 	_lat_cos = cos(lat)
 	_north = deg_to_rad(north_offset_degrees)
-	writer = SkyWriter.new(world_env.environment.sky.sky_material as ShaderMaterial)
-	_layers = [day, night]
-	for layer in _layers:
-		layer.setup(self, writer)
+	sky = world_env.environment.sky.sky_material as ShaderMaterial
+	day.setup(self)
+	night.setup(self)
 
 func step(t: TimeScript, tiers: int) -> void:
 	var retarget := not _started
 	if tiers & TimeScript.Tier.DAY:
 		_calendar(t)
-		for layer in _layers:
-			layer.on_day(t)
+		day.on_day(t)
 	if tiers & TimeScript.Tier.STOP:
 		_weather(t)
-		for layer in _layers:
-			layer.on_stop(t)
+		day.on_stop(t)
 		retarget = true
-	var h := t.hours()
-	var new_owner: SkyLayer = day if day.owns(h) else night
-	if new_owner != owner_layer:
-		if owner_layer:
-			owner_layer.released()
-		owner_layer = new_owner
+	var day_now := day.owns(t.hours())
+	if day_now != is_day or not _started:
+		if day_now and _started:
+			night.released()
+		is_day = day_now
 		retarget = true
-	for layer in _layers:
-		layer.track(t)
-	owner_layer.active(t)
+	day.track(t)
+	night.track(t)
+	if is_night:
+		night.active(t)
 	_palette(t, retarget)
 	_started = true
-
-## Shader, light and global writes actually sent since start, for profiling.
-func writes() -> int:
-	return writer.writes
 
 # --- 1. Calendar: Earth's tilt and the equation of time only move once a day ---
 func _calendar(t: TimeScript) -> void:
@@ -125,12 +120,12 @@ func _palette(t: TimeScript, retarget: bool) -> void:
 	if retarget:
 		_start_hour = h
 		_end_hour = (t.stop + 1) * TimeScript.STOP_HOURS
-		_from = _shown if _started else owner_layer.target(_start_hour, current)
-		_to = owner_layer.target(_end_hour, upcoming)
-		writer.put(&"from_top", _from[0])
-		writer.put(&"from_horizon", _from[1])
-		writer.put(&"to_top", _to[0])
-		writer.put(&"to_horizon", _to[1])
+		_from = _shown if _started else _target(_start_hour, current)
+		_to = _target(_end_hour, upcoming)
+		put(&"from_top", _from[0])
+		put(&"from_horizon", _from[1])
+		put(&"to_top", _to[0])
+		put(&"to_horizon", _to[1])
 		_last_step = -1
 	var progress := clampf((h - _start_hour) / maxf(_end_hour - _start_hour, 0.001), 0.0, 1.0)
 	var step_i := int(progress * blend_steps)
@@ -139,7 +134,40 @@ func _palette(t: TimeScript, retarget: bool) -> void:
 	_last_step = step_i
 	var b := float(step_i) / blend_steps
 	_shown = [_from[0].lerp(_to[0], b), _from[1].lerp(_to[1], b)]
-	writer.put(&"sky_blend", b)
+	put(&"sky_blend", b)
+
+func _target(hour: float, w: int) -> Array:
+	return day.target(hour, w) if is_day else night.target(hour, w)
+
+# --- Writer: the only place that talks to the sky shader. Values that haven't moved by more than
+# their tolerance are skipped, so unchanged values cost nothing. ---
+func put(param: StringName, value, eps: float = 0.0) -> void:
+	if _sent.has(param):
+		var last = _sent[param]
+		if eps > 0.0:
+			if value is float:
+				if absf(value - last) <= eps:
+					return
+			elif value is Vector3:
+				if value.distance_to(last) <= eps:
+					return
+		elif value == last:
+			return
+	_sent[param] = value
+	sky.set_shader_parameter(param, value)
+	writes += 1
+
+func put_global(param: StringName, value) -> void:
+	var key := StringName("global/" + param)
+	if _sent.get(key) == value:
+		return
+	_sent[key] = value
+	RenderingServer.global_shader_parameter_set(param, value)
+	writes += 1
+
+## The value last sent for `param`, or `fallback` if it was never sent.
+func sent(param: StringName, fallback = null):
+	return _sent.get(param, fallback)
 
 # --- Geography, for any body crossing the sky ---
 func tilt_bias_for(body_tilt: float) -> Vector2:
